@@ -9,6 +9,13 @@ function hull(pts){let p=pts.sort((a,b)=>a[0]-b[0]||a[1]-b[1]),h=[];let cross=(a
 const shades=new Map();
 function shaded(col,n){let lit=Math.round(20*(.2+n[0]*-.30+n[1]*-.14+n[2]*.77))/20;let key=col+' '+lit;if(shades.has(key))return shades.get(key);let c=lit>=.55?colorMix(col,'#fbf4dc',Math.min(.28,(lit-.55)*.48)):colorMix(col,'#34423e',Math.min(.38,(.55-lit)*.42));shades.set(key,c);return c}
 export const cameraDefault=()=>({az:-2.38,el:.45,zoom:1,px:0,py:0});
+const mixHex=(a,b,t)=>colorMix(a,b,Math.max(0,Math.min(1,t)));
+// Sky and ground colours follow the sun: day, golden hour, night.
+function skyColors(alt){const day=['#f2f7f3','#e7efe9','#dde8e0'],dusk=['#f6e4cf','#efdcc8','#e3d6c6'],night=['#1d2630','#243039','#2b3843'];
+ const t=alt<=-.05?0:alt>=.3?1:(alt+.05)/.35;return day.map((c,i)=>t>=.5?mixHex(dusk[i],c,(t-.5)*2):mixHex(night[i],dusk[i],t*2))}
+// Ground shadow of an axis-aligned box: base corners plus the roof corners pushed away from the sun.
+function shadowFaces(boxes,sun){if(sun[2]<=.03)return[];const sz=Math.max(.12,sun[2]),dx=-sun[0]/sz,dy=-sun[1]/sz,out=[];
+ for(const [x,y,w,d,h] of boxes){const base=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]],pts=[...base,...base.map(p=>[p[0]+dx*h,p[1]+dy*h])],hp=hull(pts);if(hp.length>=3)out.push({p:hp.map(p=>[p[0],p[1],.26]),c:'#1f2d27'})}return out}
 export function draw(canvas,scene,camera,opts={}){
  let c=ctxOf(canvas),dims=configure(canvas,c);if(!dims)return{};let [W,H]=dims;
  const b=scene.bounds,sz=b.hi.map((v,i)=>v-b.lo[i]),mx=(b.hi[0]+b.lo[0])/2,my=(b.hi[1]+b.lo[1])/2,mz=(b.hi[2]+b.lo[2])*.5;
@@ -16,29 +23,21 @@ export function draw(canvas,scene,camera,opts={}){
  const extent=Math.max(...sz,.01),base=Math.min(W/(1.7*Math.max(Math.hypot(sz[0],sz[1]),sz[2]*.6)),H/(1.12*(sz[2]*.91+Math.hypot(sz[0],sz[1])*.40))),scale=base*camera.zoom*(opts.thumb?.96:1.04);
  const ox=W*.50+camera.px,oy=H*(opts.thumb?.52:.49)+camera.py;
  function proj(p){let x=p[0]-mx,y=p[1]-my,z=p[2]-mz;return[ox+scale*(-cy*x+cx*y),oy+scale*((cx*x+cy*y)*sa-z*ca)]}
- const faces=scene.poly,back=opts.thumb?'#e6eee9':'#e7efea';c.fillStyle=back;c.fillRect(0,0,W,H);
- if(!opts.thumb){let g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,'#ecf4ef');g.addColorStop(.65,'#e5ede8');g.addColorStop(1,'#dbe6e0');c.fillStyle=g;c.fillRect(0,0,W,H)}
+ const sun=opts.sun||[-.45,-.55,.7],alt=Math.asin(Math.max(-1,Math.min(1,sun[2]))),day=Math.max(0,Math.min(1,alt/.35)),night=alt<0?Math.min(1,-alt/.12):0;
+ const faces=scene.poly,[s0,s1,s2]=skyColors(alt);
+ if(opts.thumb){c.fillStyle='#eef3ef';c.fillRect(0,0,W,H)}else{let g=c.createLinearGradient(0,0,W,H);g.addColorStop(0,s0);g.addColorStop(.65,s1);g.addColorStop(1,s2);c.fillStyle=g;c.fillRect(0,0,W,H)}
  const gstep=extent/7;
- if(opts.grid!==false&&!opts.thumb){for(let i=-45;i<=45;i++){let a=i*gstep,reach=gstep*60,col=i%4===0?'#c7d2cc97':'#cfdad49c';line(c,proj([a,-reach,0]),proj([a,reach,0]),col,.65);line(c,proj([-reach,a,0]),proj([reach,a,0]),col,.65)}}
- if(opts.context!==false&&scene.demo&&!opts.thumb){const rect=(x,y,w,d,z)=>[[x,y,z],[x+w,y,z],[x+w,y+d,z],[x,y+d,z]].map(proj);
-  for(let [x,y,w,d] of [[-23,-15,43,28],[-57,-14,26,26],[26,-14,29,26],[-20,19,39,23],[-20,-45,38,24]])polygon(c,rect(x,y,w,d,-.45),'#d8e3dd48','#bcccc3');
-  let v=[];for(let [x,y,w,d,h] of [[-45,22,27,13,5.5],[-28,41,20,12,8.3],[6,34,22,14,5.8],[35,11,19,15,8.6],[38,-25,17,13,5],[-53,-25,14,17,4],[-43,-45,22,15,3],[-1,-48,12,9,2]]){let q=[[x,y,0],[x+w,y,0],[x+w,y+d,0],[x,y+d,0]],Q=q.map(([X,Y])=>[X,Y,h]);for(let i=0;i<4;i++){let j=(i+1)%4;v.push({p:[q[i],q[j],Q[j],Q[i]],f:i%2?'#d4dfd9':'#dae5df'})}v.push({p:Q,f:'#e9f2ed'})}
-  v.sort((a,b)=>depth(a.p)-depth(b.p));c.globalAlpha=.68;for(let f of v)polygon(c,f.p.map(proj),f.f,'#beccc4');c.globalAlpha=1
- }
+ if(opts.grid!==false&&!opts.thumb){c.globalAlpha=night>.5?.35:1;for(let i=-45;i<=45;i++){let a=i*gstep,reach=gstep*60,col=i%4===0?'#cbd6cd97':'#d5ddd79c';line(c,proj([a,-reach,0]),proj([a,reach,0]),col,.65);line(c,proj([-reach,a,0]),proj([reach,a,0]),col,.65)}c.globalAlpha=1}
  function depth(p){let sx=0,sy=0,sz=0;for(let v of p){sx+=v[0];sy+=v[1];sz+=v[2]}return((sx*cx+sy*cy)*ca+sz*sa)/p.length}
- if(opts.shadows!==false){c.save();let shadowScale=extent/35;for(let [x,y,w,d,h] of scene.shadows){let pts=[[x,y],[x+w,y],[x+w,y+d],[x,y+d]],ps=[...pts,...pts.map(p=>[p[0]+h*.52,p[1]-h*.38])].map(p=>proj([...p,0]));c.shadowColor='#4b5b5236';c.shadowBlur=Math.max(2,scale*shadowScale*.7);polygon(c,hull(ps),'#7283795a')}c.restore()}
- let settings={W,H,mx,my,mz,scale,ox,oy,cx,cy,sa,ca,extent};
- let solid=!opts.wire&&(drawSolid(c,scene,settings)||drawSoftware(c,scene,settings));
+ const overlay=opts.shadows!==false?shadowFaces(scene.shadows||[],sun):[];
+ let settings={W,H,mx,my,mz,scale,ox,oy,cx,cy,sa,ca,extent},extra={sun,day,night,dynamic:opts.dynamic||[],overlay,overlayAlpha:.2+.22*day};
+ let solid=!opts.wire&&drawSolid(c,scene,settings,extra);
+ if(!solid&&!opts.wire){c.save();for(const f of overlay)polygon(c,f.p.map(proj),'#24302a30');c.restore();solid=drawSoftware(c,scene,settings,extra)}
  let sorted=(solid&&!opts.pick?[]:faces).map(f=>{if(!f.n)f.n=normal(f.p);return{f,z:depth(f.p)}}).sort((a,b)=>a.z-b.z);
- let hits=[];for(let {f} of sorted){let p=f.p.map(proj),n=f.n;
- if(opts.wire){polygon(c,p,colorMix(f.c,'#f8f6e9',.64),'#8e9892');continue}
- if(solid){if(f.tag&&opts.pick)hits.push({p,t:f.tag});continue}
- let col=shaded(f.c,n);
- if(f.c==='#789391'||f.c==='#8fa2a0'||f.c==='#889c9b'||f.c==='#788e91'||f.c==='#819598'){let y0=Math.min(...p.map(v=>v[1])),y1=Math.max(...p.map(v=>v[1])),gr=c.createLinearGradient(0,y0,0,y1+.1);gr.addColorStop(0,colorMix(col,'#e2ece6',.23));gr.addColorStop(1,colorMix(col,'#3c4e48',.20));polygon(c,p,gr)}
- else polygon(c,p,col);
- if(f.tag&&opts.pick)hits.push({p,t:f.tag})
- }
- if(!opts.thumb){let g=c.createRadialGradient(W*.5,H*.44,H*.18,W*.5,H*.5,Math.max(W,H)*.72);g.addColorStop(0,'#ffffff00');g.addColorStop(1,'#cbdad128');c.fillStyle=g;c.fillRect(0,0,W,H)}
+ let hits=[];for(let {f} of sorted){let p=f.p.map(proj);
+ if(opts.wire){polygon(c,p,colorMix(f.c,'#f8f6e9',.64),'#91998d');continue}
+ if(f.tag&&opts.pick)hits.push({p,t:f.tag})}
+ if(!opts.thumb){let g=c.createRadialGradient(W*.5,H*.44,H*.18,W*.5,H*.5,Math.max(W,H)*.72);g.addColorStop(0,'#ffffff00');g.addColorStop(1,night>.5?'#0b101633':'#d3ddd528');c.fillStyle=g;c.fillRect(0,0,W,H)}
  return{scale,hits,compass:Math.atan2(cx, -cy*sa)*180/Math.PI};
 }
 export function pick(hits,x,y){for(let k=hits.length-1;k>=0;k--){let {p,t}=hits[k],inside=false;for(let i=0,j=p.length-1;i<p.length;j=i++){let a=p[i],b=p[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])inside=!inside}if(inside)return t}}

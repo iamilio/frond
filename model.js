@@ -29,7 +29,7 @@ export const stateDefault=()=>({schema:'frond-1',demo:true,name:'Terrace Office'
  {id:'v7',name:'Green roof',system:'greenroof',elevation:'all'}
 ].map(x=>({...structuredClone(paramDefaults),...x})),checked:['base','v2','v3','v4','v5','v6','v7']});
 // Map a Frond variant to the renderer's wall, roof and shading vocabulary.
-export function effective(v){const s=v.system;return{...v,wall:s==='ovf'?'ovf':'original',roof:s==='greenroof'?'green':'original',system:s==='brick'?'perforated':(s==='trellis'||s==='custom')?s:(v.addons?.pv?'pv':'original')}}
+export function effective(v){const s=v.system;return{...v,layer:s==='datepalm'?'datepalm':s==='biopcm'?'pcm':'original',wall:s==='ovf'?'ovf':'original',roof:s==='greenroof'?'green':'original',system:s==='brick'?'perforated':(s==='trellis'||s==='custom')?s:(v.addons?.pv?'pv':'original')}}
 export function normal(p){let a=[0,0,0];for(let i=0;i<p.length;i++){let v=p[i],w=p[(i+1)%p.length];a[0]+=(v[1]-w[1])*(v[2]+w[2]);a[1]+=(v[2]-w[2])*(v[0]+w[0]);a[2]+=(v[0]-w[0])*(v[1]+w[1]);}let n=Math.hypot(...a)||1;return a.map(v=>v/n)}
 export function bounds(faces){let lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const f of faces)for(const p of f.p)for(let j=0;j<3;j++){lo[j]=Math.min(lo[j],p[j]);hi[j]=Math.max(hi[j],p[j])}return{lo,hi}}
 const dirs=['N','E','S','W'];
@@ -97,15 +97,48 @@ function wallQuad(a,f,u,v,U,V,k,col,tag){face(a,[pt(f,u,v,k),pt(f,U,v,k),pt(f,U,
 function blade(a,f,u,v,U,V,k,K,c,tag,tilt=0){let b=[pt(f,u,v,k),pt(f,U,v,k),pt(f,U,V,k),pt(f,u,V,k)],p=[pt(f,u+tilt,v,K),pt(f,U+tilt,v,K),pt(f,U+tilt,V,K),pt(f,u+tilt,V,K)];face(a,p,c,tag);for(let i=0;i<4;i++){let j=(i+1)%4;face(a,[b[i],b[j],p[j],p[i]],c,tag)}}
 function inside(x,y,poly){let on=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){let [a,b]=poly[i],[c,d]=poly[j];if(((b>y)!==(d>y))&&x<(c-a)*(y-b)/(d-b)+a)on=!on}return on}
 function allowed(f,u,v){return !f.clip||inside(u,v,f.clip)}
+function scatterPlants(a,poly,n){let o=poly[0],seed=Math.round(o[0]*13+o[1]*7);for(let t=1;t+1<poly.length;t++){let A=poly[0],B=poly[t],C=poly[t+1],area=Math.hypot(...[(B[1]-A[1])*(C[2]-A[2])-(B[2]-A[2])*(C[1]-A[1]),(B[2]-A[2])*(C[0]-A[0])-(B[0]-A[0])*(C[2]-A[2]),(B[0]-A[0])*(C[1]-A[1])-(B[1]-A[1])*(C[0]-A[0])])/2,count=Math.min(80,Math.round(area/2.2));for(let i=0;i<count;i++){let r1=hash(seed+i*3+t),r2=hash(seed+i*7+t*5);if(r1+r2>1){r1=1-r1;r2=1-r2}let p=[0,1,2].map(j=>A[j]+(B[j]-A[j])*r1+(C[j]-A[j])*r2);leaf(a,p[0]+n[0]*.1,p[1]+n[1]*.1,p[2]+.14,.28+r1*.2,seed+i,r2>.5?'#6f9a4c':'#87ad5c')}}}
+// Demo neighbourhood: four streets, sidewalks, street trees and surrounding blocks with windows.
+const ROADS=[{axis:'x',c:-18},{axis:'x',c:20.5},{axis:'y',c:25},{axis:'y',c:-25}],REACH=95;
+function slab(a,x0,y0,x1,y1,z0,z1,c){box(a,Math.min(x0,x1),Math.min(y0,y1),z0,Math.abs(x1-x0),Math.abs(y1-y0),z1-z0,c)}
+function cityBlock(a,x,y,w,d,h,col,seed,shadows){box(a,x,y,0,w,d,h,col);box(a,x-.15,y-.15,h,w+.3,d+.3,.35,colorMix(col,'#ffffff',.18));const fl=Math.max(1,Math.floor(h/3.3));
+ for(let j=0;j<fl;j++){let z=j*3.3+1.0;for(const [ox,oy,ux,uy,len,nx,ny] of [[x,y,1,0,w,0,-1],[x+w,y+d,-1,0,w,0,1],[x,y+d,0,-1,d,-1,0],[x+w,y,0,1,d,1,0]]){for(let u=.8;u+1.4<len;u+=2.2){let px=ox+ux*u+nx*.03,py=oy+uy*u+ny*.03;face(a,[[px,py,z],[px+ux*1.4,py+uy*1.4,z],[px+ux*1.4,py+uy*1.4,z+1.45],[px,py,z+1.45]],'#4d5a60')}}}
+ shadows.push([x,y,w,d,h+.35])}
+function neighbourhood(a,shadows,trees){
+ slab(a,-REACH,-REACH,REACH,REACH,-.09,-.06,'#e4e0d3');
+ for(const r of ROADS){const lo=r.c-3.5,hi=r.c+3.5,side=(s,e)=>r.axis==='x'?slab(a,-REACH,s,REACH,e,0,.12,'#dcd5c6'):slab(a,s,-REACH,e,REACH,0,.12,'#dcd5c6');
+  if(r.axis==='x')slab(a,-REACH,lo,REACH,hi,-.06,.01,'#5f6468');else slab(a,lo,-REACH,hi,REACH,-.06,.012,'#5f6468');side(lo-2.6,lo);side(hi,hi+2.6);
+  for(let t=-REACH;t<REACH;t+=6){if(ROADS.some(q=>q.axis!==r.axis&&Math.abs(t+1.5-q.c)<5))continue;r.axis==='x'?slab(a,t,r.c-.08,t+3,r.c+.08,.01,.025,'#f2efe4'):slab(a,r.c-.08,t,r.c+.08,t+3,.012,.027,'#f2efe4')}
+  if(trees)for(let t=-70;t<=70;t+=10){if(ROADS.some(q=>q.axis!==r.axis&&Math.abs(t-q.c)<7))continue;for(const off of [lo-1.3,hi+1.3]){let [x,y]=r.axis==='x'?[t+(off>r.c?5:0),off]:[off,t+(off>r.c?5:0)];if(Math.abs(x)<17.5&&Math.abs(y)<12.6)continue;let h=4.2+hash(x*3+y)*1.6;tree(a,x,y,.12,h,Math.round(x*7+y*3));shadows.push([x-1.2,y-1.2,2.4,2.4,h*.85])}}}
+ const blocks=[[-62,-50,22,18,6,'#d9cdb3'],[-31,-46,18,16,6,'#cfc3a8'],[-6,-48,18,18,6,'#e2d6bd'],[32,-52,22,20,9,'#d6c9ad'],[58,-48,20,16,19,'#ccbfa3'],[-64,30,24,18,12,'#d7cbb0'],[-34,31,18,20,22,'#cdbfa4'],[-8,31,20,16,9,'#e0d4ba'],[33,31,22,18,15,'#d4c8ac'],[60,33,18,16,6,'#ddd1b7'],[-62,-14,22,22,6,'#d3c6aa'],[-88,-10,18,20,7,'#ded2b9'],[33,-14,20,22,9,'#d8ccb1'],[61,-12,16,20,25,'#c9bb9f']];
+ blocks.forEach((b,i)=>cityBlock(a,...b.slice(0,6),i,shadows))}
+// Lanes for moving cars: two directions on each street.
+export const LANES=ROADS.flatMap((r,i)=>[{r,off:-1.75,dir:1,n:3,speed:9+i},{r,off:1.75,dir:-1,n:3,speed:8+i*1.3}]);
+const CAR_COLORS=['#d94841','#2a78d6','#f2f2f2','#3b3f44','#e0b43a','#8c9aa3','#1baf7a','#c9c4b8'];
+function orientedBox(a,cx,cy,z,len,wid,h,ux,uy,c){const nx=-uy,ny=ux,P=(s,t,q)=>[cx+ux*s*len/2+nx*t*wid/2,cy+uy*s*len/2+ny*t*wid/2,z+q];
+ a.push({p:[P(-1,-1,h),P(1,-1,h),P(1,1,h),P(-1,1,h)],c});for(const [s0,t0,s1,t1] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])a.push({p:[P(s0,t0,0),P(s1,t1,0),P(s1,t1,h),P(s0,t0,h)],c})}
+export function carFaces(time){const out=[];LANES.forEach((L,li)=>{for(let i=0;i<L.n;i++){let len=2*REACH,s=((time*L.speed/len+i/L.n+li*.137)%1+1)%1,t=-REACH+len*(L.dir>0?s:1-s),c=CAR_COLORS[(li*3+i)%CAR_COLORS.length];
+ let [x,y,ux,uy]=L.r.axis==='x'?[t,L.r.c+L.off,L.dir,0]:[L.r.c+L.off,t,0,L.dir];
+ if(Math.abs(x)<20&&Math.abs(y)<15)continue;orientedBox(out,x,y,.18,4.2,1.8,.75,ux,uy,c);orientedBox(out,x-ux*.3,y-uy*.3,.93,2.2,1.6,.55,ux,uy,'#2f3a44');}});return out}
+// Sun direction for Yazd (lat 31.9° N) on the 21st of a month at a solar hour. x east, y north, z up.
+export function sunVector(month,hour,lat=31.9){const n=[21,52,80,111,141,172,202,233,264,294,325,355][month],dec=23.45*Math.PI/180*Math.sin(2*Math.PI*(284+n)/365),H=(hour-12)*15*Math.PI/180,phi=lat*Math.PI/180;
+ const x=-Math.cos(dec)*Math.sin(H),y=Math.sin(dec)*Math.cos(phi)-Math.cos(dec)*Math.cos(H)*Math.sin(phi),z=Math.sin(dec)*Math.sin(phi)+Math.cos(dec)*Math.cos(H)*Math.cos(phi);return[x,y,z]}
 function buildSystem(a,f,v,isTarget){
  const tag={dir:f.dir,level:f.level,room:f.room},W=f.len,H=f.h,k=.20;
  if(!isTarget||a.length>165000)return;
  if(v.wall==='living'&&f.wallHost){for(let i=0;i<W;i+=1.25){if(!allowed(f,i+.4,H*.38))continue;wallQuad(a,f,i,0,Math.min(W,i+1.18),H*.71,.06,i%2?'#70845d':'#83956c',tag)}}
- if(v.wall==='ovf'&&f.wallHost){for(let i=0;i<W;i+=2.5){if(allowed(f,i+.3,H*.28))blade(a,f,i+.05,.1,Math.min(i+2.43,W),H*.36,.08,.25,'#c2b099',tag)}}
+ const bands=f.bands||[[0,H]];
+ if(v.wall==='ovf'&&f.wallHost){const cav=Math.max(.04,Number(v.cavity)||.12)*1.5,col={brick:'#b9653f',terracotta:'#c98257',biobased:'#a88f5f'}[v.cladding]||'#c98257';for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=0;i<W;i+=1.2){let u1=Math.min(W,i+1.17),mid=(i+u1)/2;if(!allowed(f,mid,(b0+b1)/2))continue;blade(a,f,i+.02,b0,i+.07,b1,.055,.06+cav,'#6f6b63',tag);blade(a,f,i+.015,b0+.015,u1,b1-.015,.06+cav,.085+cav,colorMix(col,'#ffffff',hash(i*7+b0*3)*.16),tag)}}}
+ if(v.layer==='datepalm'&&f.wallHost){const t=Math.max(.04,Number(v.thick)||.1)*.7;for(const [b0,b1] of bands){if(b1-b0<.1)continue;for(let i=0;i<W;i+=1){let u1=Math.min(W,i+1);if(!allowed(f,(i+u1)/2,(b0+b1)/2))continue;blade(a,f,i,b0,u1,b1,.056,.056+t,'#d8bf88',tag);for(let q=i+.07;q<u1-.02;q+=.14)wallQuad(a,f,q,b0+.012,q+.035,b1-.012,.06+t,'#b3955d',tag)}}}
+ if(v.layer==='pcm'&&f.wallHost){for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=.04;i+.3<W;i+=.36)for(let j=b0+.03;j+.2<b1;j+=.3){if(!allowed(f,i+.15,j+.1))continue;blade(a,f,i,j,i+.3,Math.min(b1-.03,j+.25),.056,.09,hash(i*3+j*11)>.5?'#7d8fca':'#95a5d8',tag)}}}
  if(!f.shadeHost||v.system==='original')return;
  const spacing=Math.max(.5,Number(v.spacing)||1.8),depth=Number(v.depth)||.9,angle=(Number(v.angle)||0)*Math.PI/180;
  if(v.system==='fins'||v.system==='kinetic'){let count=Math.max(1,Math.min(80,Math.round(W/spacing)));for(let i=0;i<count;i++){let u=(i+.5)*W/count;if(!allowed(f,u,H*.5))continue;let t=Math.min(W/count*.21,.20);blade(a,f,u-t/2,.03,u+t/2,H-.03,k,k+Math.max(.09,depth*Math.cos(angle)),v.system==='fins'?'#bb7854':'#82959b',tag,depth*Math.sin(angle))}}
  if(v.system==='horizontal'||v.system==='pv'){let count=v.system==='pv'?1:Math.max(1,Math.min(20,Math.round(H/Math.max(.35,spacing*.6))));for(let i=0;i<count;i++){let z=H-(i+.12)*H/count,dx=v.system==='pv'?Math.max(depth,1.2):depth;if(!allowed(f,W*.5,z-.08))continue;blade(a,f,0,z-.13,W,z,k,k+dx,v.system==='pv'?'#526d79':'#b59373',tag);if(v.system==='pv'){for(let q=.4;q<W;q+=spacing)face(a,[pt(f,q,z+.01,k),pt(f,q+.04,z+.01,k),pt(f,q+.04,z+.01,k+dx),pt(f,q,z+.01,k+dx)],'#a7bec4',tag)}}}
+ if(v.system==='perforated'){const open=Math.min(.7,Math.max(.1,(v.coverage||30)/100)),bl=.42,bh=.12,gap=bl*open/(1-open),kk=k+Math.min(depth,1.3);
+  for(let u=0;u<=W;u+=3)if(allowed(f,Math.min(u,W-.05),H*.5))blade(a,f,Math.max(0,Math.min(u,W-.06)),0,Math.max(.06,Math.min(u+.06,W)),H,k,kk,'#5b5c58',tag);
+  for(let row=0,z=.02;z<H-.04;row++,z+=bh){let off=row%2?(bl+gap)/2:0;for(let u=-off;u<W;u+=bl+gap){let u0=Math.max(0,u),u1=Math.min(W,u+bl);if(u1-u0<.05||!allowed(f,(u0+u1)/2,z+bh/2))continue;let c=colorMix('#b5623b','#d39064',hash(row*31+Math.round(u*10)));face(a,[pt(f,u0,z,kk),pt(f,u1,z,kk),pt(f,u1,z+bh*.84,kk),pt(f,u0,z+bh*.84,kk)],c,tag);face(a,[pt(f,u0,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk+.1),pt(f,u0,z+bh*.84,kk+.1)],colorMix(c,'#ffffff',.18),tag)}}
+  return}
  if(v.system==='trellis'||v.system==='perforated'||v.system==='bionic'){
  let green=v.system==='trellis',bio=v.system==='bionic',step=Math.max(.52,spacing*.65,Math.sqrt(W*H/1200));for(let i=0;i<W;i+=step){for(let j=0;j<H;j+=step){let u=Math.min(i+step*.5,W-.1),z=Math.min(j+step*.5,H-.1);if(!allowed(f,u,z))continue;let rr=step*.46*Math.sqrt((v.coverage||70)/100),kk=k+Math.min(depth,1.3);if(green){wallQuad(a,f,i,Math.max(0,j),Math.min(i+.05,W),Math.min(H,j+step),kk,'#8a8b75',tag);wallQuad(a,f,i,j,Math.min(W,i+step),Math.min(j+.05,H),kk,'#898a72',tag);let r=hash(i*12+j*3+f.o[2]);if(r<(v.coverage||70)/100)leaf(a,...pt(f,u,z,kk+.12),rr*(1+.35*r),Math.round(i*53+j),r>.55?'#839a62':'#708451')}
  else if(bio){let amt=.25+.65*Math.sin(angle);face(a,[pt(f,u-rr,z,kk),pt(f,u,z-rr,kk+amt),pt(f,u+rr,z,kk),pt(f,u,z+rr,kk+amt)],'#b29367',tag)}
@@ -120,7 +153,7 @@ function buildBase(project,v,opt={}){
  const m=project.model,b=m.bounds,H=Math.max(.01,b.hi[2]-b.lo[2]);const hasGlass=m.faces.some(f=>f.kind==='glass');let hosts=[],hasStory=m.stories.length===floors;const byId=new Map(m.faces.map(f=>[f.label,f]));
  for(const f of m.faces){let n=normal(f.p),mid=f.p.reduce((s,p)=>s.map((x,i)=>x+p[i]/f.p.length),[0,0,0]);let level=f.level&&hasStory?m.stories.indexOf(f.level)+1:Math.max(1,Math.min(floors,Math.floor((mid[2]-.001)/H*floors)+1));let cutZ=maxFloor*H/floors;if((level>maxFloor&&(!opt.cut||Math.min(...f.p.map(p=>p[2]))>=cutZ))||f.kind==='internal'&&!opt.cut)continue;
  if(f.kind==='shade'&&v.system!=='original'){let parent=byId.get(f.host),facing=parent?normal(parent.p):[mid[0]/Math.max(.01,b.hi[0]-b.lo[0]),mid[1]/Math.max(.01,b.hi[1]-b.lo[1]),0];if(targeted(v,faceDir(facing),level)&&(!v.room||v.room==='all'||v.room===f.room))continue}
- if(n[0]*mid[0]+n[1]*mid[1]<0&&m.type==='OBJ')n=n.map(x=>-x);let dir=faceDir(n),vertical=Math.abs(n[2])<.45,tag={dir:vertical?dir:null,level,room:f.room};if(f.kind==='roof'&&v.roof==='green')face(a,f.p,'#7f9567',tag);else{let p=f.kind==='glass'?f.p.map(p=>[p[0]+n[0]*.012,p[1]+n[1]*.012,p[2]]):f.p;face(a,p,baseColors[f.kind]||baseColors.wall,tag)}
+ if(n[0]*mid[0]+n[1]*mid[1]<0&&m.type==='OBJ')n=n.map(x=>-x);let dir=faceDir(n),vertical=Math.abs(n[2])<.45,tag={dir:vertical?dir:null,level,room:f.room};if(f.kind==='roof'&&v.roof==='green'){face(a,f.p,'#86a25a',tag);scatterPlants(a,f.p,n)}else{let p=f.kind==='glass'?f.p.map(p=>[p[0]+n[0]*.012,p[1]+n[1]*.012,p[2]]):f.p;face(a,p,baseColors[f.kind]||baseColors.wall,tag)}
  if(vertical&&['wall','glass'].includes(f.kind)&&targeted(v,dir,level)){let l=Math.hypot(n[0],n[1]),nx=n[0]/l,ny=n[1]/l,u=[-ny,nx],coord=f.p.map(p=>p[0]*u[0]+p[1]*u[1]),min=Math.min(...coord),max=Math.max(...coord),zlo=Math.min(...f.p.map(p=>p[2])),zhi=Math.max(...f.p.map(p=>p[2])),k=mid[0]*nx+mid[1]*ny,len=max-min,h=zhi-zlo;if(len>.14&&h>.14){let frame={o:[min*u[0]+k*nx,min*u[1]+k*ny,zlo],u,n:[nx,ny],len,h,dir,level,room:f.room,clip:f.p.map((p,i)=>[coord[i]-min,p[2]-zlo]),wallHost:f.kind==='wall',shadeHost:hasGlass?f.kind==='glass':f.kind==='wall'};hosts.push(frame)}}}
  for(let f of hosts)buildSystem(a,f,v,!v.room||v.room==='all'||v.room===f.room);
  if(v.roof==='green'&&m.type==='OBJ')for(const f of m.faces){let n=normal(f.p),z=Math.min(...f.p.map(p=>p[2]));if(Math.abs(n[2])>.9&&z>H*.75&&maxFloor===floors)face(a,f.p.map(p=>[p[0],p[1],p[2]+.016]),'#819268')}
@@ -131,18 +164,19 @@ function buildBase(project,v,opt={}){
  for(let i=0;i<maxFloor;i++){let x=i===0?-14.2:i<3?-14:-12.3,y=i===0?-9.7:i<3?-9.5:-6.5,w=i===0?28.4:i<3?28:19.9,d=i===0?19.4:i<3?19:15.7,z=.28+i*fh;last=[x,y,w,d,z+fh];if(v.mass==='bar'&&i>0){x=-13.7;y=-8.4;w=27.4;d=16.8;last=[x,y,w,d,z+fh]}let hot=i===0?'#a8a18e':'#d9c7ac';box(a,x-.32,y-.32,z,w+.64,d+.64,.33,hot);
  for(let dir of dirs){let f=faceFrame(dir,x,y,w,d,z+.33,fh-.36,{level:i+1,shadeHost:true,wallHost:true,room:dir+' perimeter · Level '+(i+1)}),tag={dir,level:i+1,room:f.room};let bays=Math.max(2,Math.round(f.len/1.83));for(let j=0;j<bays;j++){let u=j*f.len/bays,U=(j+1)*f.len/bays,r=hash(i*48+j*7+dir.charCodeAt(0)),col=['#889c9b','#788e91','#8fa2a0','#819598','#9aaca6'][Math.floor(r*5)];wallQuad(a,f,u+.025,.08,U-.02,f.h-.08,.015,col,tag);if(r>.71){wallQuad(a,f,u+.04,.10,U-.04,f.h*(.47+r*.25),.028,'#a0a9a0',tag)}wallQuad(a,f,u,.02,u+.065,f.h,.042,'#525f5d',tag);wallQuad(a,f,u+.01,f.h*.83,U,f.h*.83+.045,.047,'#6a7875',tag);if(j%3===0)blade(a,f,u-.06,0,u+.15,f.h,.05,.23,'#d7c4a7',tag)}
  wallQuad(a,f,0,.03,f.len,.12,.051,'#b5ae98',tag);let opaque=Math.max(0,1-(v.wwr??74)/100)*fh;
- wallQuad(a,f,0,.02,f.len,Math.min(f.h*.84,opaque*.65),.055,'#ccbaa0',tag);
- wallQuad(a,f,0,f.h-opaque*.22,f.len,f.h,.055,'#cbbba2',tag);
- buildSystem(a,f,v,targeted(v,dir,i+1)&&(!v.room||v.room==='all'||v.room===f.room));}
+ wallQuad(a,f,0,.02,f.len,Math.min(f.h*.84,opaque*.65),.055,v.addons?.coating?'#f3f0e8':'#ccbaa0',tag);
+ wallQuad(a,f,0,f.h-opaque*.22,f.len,f.h,.055,v.addons?.coating?'#f3f0e8':'#cbbba2',tag);
+ f.bands=[[.02,Math.min(f.h*.84,opaque*.65)],[f.h-opaque*.22,f.h]];buildSystem(a,f,v,targeted(v,dir,i+1)&&(!v.room||v.room==='all'||v.room===f.room));}
  box(a,x-.42,y-.42,z+fh-.23,w+.84,d+.84,.27,'#e2cfb1');
  if(i===2&&i<maxFloor-1&&v.mass!=='bar'){box(a,8.7,-8.4,z+fh+.055,3.9,16.8,.30,'#abac8b');for(let n=0;n<6;n++)tree(a,10.5,-6.8+n*2.55,z+fh+.3,2.15,n+4);box(a,-12.8,-8.7,z+fh+.04,20.4,1.25,.29,'#979f7f')}
  }
- if(last){let [x,y,w,d,z]=last;box(a,x-.1,y-.1,z+.02,w+.2,d+.2,.16,'#d7d0ba');box(a,x+.55,y+.55,z+.16,w-1.1,d-1.1,.09,v.roof==='green'?'#87966e':'#c7c8b5');for(let k of [[x,y,w,.13],[x,y,.13,d],[x,y+d-.13,w,.13],[x+w-.13,y,.13,d]])box(a,k[0],k[1],z+.12,k[2],k[3],.4,'#dfd1b8');
+ if(last){let [x,y,w,d,z]=last;box(a,x-.1,y-.1,z+.02,w+.2,d+.2,.16,'#d7d0ba');box(a,x+.55,y+.55,z+.16,w-1.1,d-1.1,v.roof==='green'?.06+(Number(v.substrate)||.12)*.6:.09,v.roof==='green'?'#7a6a4f':'#c7c8b5');if(v.roof==='green'){let top=z+.22+(Number(v.substrate)||.12)*.6,cover=Math.min(1,.35+(Number(v.lai)||2.5)*.15);box(a,x+.6,y+.6,top-.03,w-1.2,d-1.2,.03,'#86a25a');for(let gx=x+1.1;gx<x+w-1;gx+=1.25)for(let gy=y+1.1;gy<y+d-1;gy+=1.25){let r=hash(gx*13+gy*7);if(r>cover||(gx>x+w*.4&&gx<x+w*.43+4.3&&gy>y+d*.46&&gy<y+d*.48+3.6)||(gx>x+2&&gx<x+6.8&&gy>y+2.1&&gy<y+4.5))continue;leaf(a,gx+(r-.5)*.5,gy+(hash(gy*3+gx)-.5)*.5,top+.12,.32+r*.22,Math.round(gx*31+gy*17),r>.5?'#6f9a4c':'#87ad5c')}}for(let k of [[x,y,w,.13],[x,y,.13,d],[x,y+d-.13,w,.13],[x+w-.13,y,.13,d]])box(a,k[0],k[1],z+.12,k[2],k[3],.4,'#dfd1b8');
  if(maxFloor===floors){box(a,x+w*.43,y+d*.48,z+.24,4.1,3.4,1.25,'#c9c5ab');box(a,x+w*.43-.12,y+d*.48-.12,z+1.49,4.34,3.64,.15,'#e4d8ba');box(a,x+2.1,y+2.2,z+.24,4.5,2.2,.42,'#aeb2a1');for(let i=0;i<4;i++)box(a,x+2.25+i, y+2.37,z+.65,.63,1.7,.055,'#929d8d')}
  if(opt.cut){for(let j=0;j<3;j++)box(a,x+w*(j+1)/4,y+.1,z+.28,.14,d-.2,.8,'#aeaa96');box(a,x+.1,y+d*.54,z+.28,w-.2,.15,.8,'#aeaa96')}}
+ const extraShadows=[];if(opt.context===true)neighbourhood(a,extraShadows,opt.landscape!==false);
  if(opt.landscape!==false){for(let [x,y,h,s]of[[-15,-7,3.7,3],[-15.1,4.2,4.1,4],[14.8,-6.2,3.9,6],[14.9,3.1,4.1,8],[7.7,-10.2,3.5,1]])tree(a,x,y,.22,h,s);
  box(a,-7.7,-11.35,.25,7.5,1,.21,'#b7b6a0');for(let i=0;i<4;i++)box(a,-8.2,-11.73-.30*i,.02,8.4,.31,.2-.04*i,'#d6d0bb')}
- shadows=[[-14,-9.5,28,19,10.7],[-12.3,-6.5,19.9,15.7,maxFloor*fh+.8]];
+ shadows=[[-14,-9.5,28,19,10.7],[-12.3,-6.5,19.9,15.7,maxFloor*fh+.8],...extraShadows];
  return{poly:a,bounds:{lo:[-17,-12,0],hi:[17,12,floors*fh+2]},shadows,demo:true}
 }
 export {colorMix}

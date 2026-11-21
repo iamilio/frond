@@ -6,6 +6,13 @@ Frond is a web tool for architects in hot-arid climates. You import a building, 
 
 > **Status: prototype v0.1.** The interface works, but the ranking uses **invented demo data**. The ML model (trained on about 2,000 EnergyPlus runs per system with a city weather file, Yazd first) is not built yet.
 
+## What you can do
+
+- Apply each system to a façade, floor or room and see it in 3D
+- Change the date and hour to move the sun; watch light, shadows and lit windows at night
+- Live demo street with traffic
+- See the ranking, charts and a full table (demo data for now)
+
 ## The six systems
 
 | System | Mechanism | Nature label |

@@ -1,5 +1,7 @@
 // Lucide icons, ISC license (see lucide-LICENSE.txt).
 export const icons={
+"play":"<path d='M6 4l14 8-14 8z'/>",
+"pause":"<path d='M7 4v16M17 4v16'/>",
 "rotate-3d":"<path d='M3 12a9 9 0 1 0 3-6l-3 3m0-5v5h5'/>",
 "align-justify":"<path d='M3 5h18M3 12h18M3 19h18'/>",
   "box": "<path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/><path d=\"m3.3 7 8.7 5 8.7-5\"/><path d=\"M12 22V12\"/>",
