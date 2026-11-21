@@ -1,0 +1,155 @@
+export const systems={
+ original:{name:'Reference envelope',family:'Reference',host:'all',icon:'building-2',color:'#9a9c92',mech:'Existing envelope'},
+ trellis:{name:'Green façade',family:'Nature-based',host:'window',icon:'sprout',color:'#008300',mech:'Seasonal plant shade'},
+ brick:{name:'Perforated brick screen',family:'Vernacular · nature-inspired',host:'window',icon:'grid-3x3',color:'#eb6834',mech:'Fixed shade'},
+ ovf:{name:'Opaque ventilated façade',family:'Nature-inspired',host:'wall',icon:'columns-3',color:'#e87ba4',mech:'Ventilated cavity'},
+ datepalm:{name:'Date-palm fibre insulation',family:'Nature-derived',host:'layer',icon:'layers-2',color:'#eda100',mech:'Thermal resistance'},
+ biopcm:{name:'Bio-based PCM',family:'Nature-derived',host:'layer',icon:'box',color:'#2a78d6',mech:'Latent heat storage'},
+ greenroof:{name:'Extensive green roof',family:'Nature-based',host:'roof',icon:'sprout',color:'#1baf7a',mech:'Roof insulation and evapotranspiration'},
+ custom:{name:'Custom module',family:'Imported design',host:'window',icon:'component',color:'#947866',mech:'Imported geometry'}};
+export const hosts={window:'In front of windows',wall:'Opaque wall',layer:'Wall layer',roof:'Roof',all:'Whole building'};
+export const params={
+ trellis:[['depth','Distance from glass',.2,1.5,.05,' m'],['spacing','Trellis spacing',.6,3,.1,' m'],['coverage','Leaf coverage',15,100,5,'%']],
+ brick:[['depth','Distance from glass',.1,1.2,.05,' m'],['spacing','Module size',.6,3,.1,' m'],['coverage','Open area',10,70,5,'%']],
+ ovf:[['cavity','Cavity depth',.04,.3,.01,' m']],
+ datepalm:[['thick','Insulation thickness',.04,.2,.01,' m']],
+ biopcm:[['pcmThick','PCM thickness',.005,.05,.005,' m'],['melt','Melting temperature',22,32,.5,' °C'],['nightAch','Night ventilation',0,10,.5,' ach']],
+ greenroof:[['substrate','Substrate depth',.06,.3,.01,' m'],['lai','Leaf area index',.5,5,.1,''],['irrigation','Irrigation',0,6,.5,' L/m²·day']],
+ custom:[['depth','Projection depth',.2,3,.1,' m'],['spacing','Module width',.6,4,.1,' m']]};
+export const claddings={brick:'Brick',terracotta:'Terracotta',biobased:'Bio-based panel'};
+export const addons={pv:'PV canopy',coating:'Light reflective finish'};
+export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
+export const stateDefault=()=>({schema:'frond-1',demo:true,name:'Terrace Office',location:'Yazd, Iran',use:'Office',levels:7,model:null,active:'v2',variants:[
+ {id:'base',name:'Reference envelope',system:'original',elevation:'all'},
+ {id:'v2',name:'Green façade · west',system:'trellis'},
+ {id:'v3',name:'Perforated brick · west',system:'brick',coverage:30},
+ {id:'v4',name:'OVF · terracotta',system:'ovf'},
+ {id:'v5',name:'Date-palm insulation',system:'datepalm',elevation:'all'},
+ {id:'v6',name:'Bio-PCM + night vent',system:'biopcm',elevation:'all'},
+ {id:'v7',name:'Green roof',system:'greenroof',elevation:'all'}
+].map(x=>({...structuredClone(paramDefaults),...x})),checked:['base','v2','v3','v4','v5','v6','v7']});
+// Map a Frond variant to the renderer's wall, roof and shading vocabulary.
+export function effective(v){const s=v.system;return{...v,wall:s==='ovf'?'ovf':'original',roof:s==='greenroof'?'green':'original',system:s==='brick'?'perforated':(s==='trellis'||s==='custom')?s:(v.addons?.pv?'pv':'original')}}
+export function normal(p){let a=[0,0,0];for(let i=0;i<p.length;i++){let v=p[i],w=p[(i+1)%p.length];a[0]+=(v[1]-w[1])*(v[2]+w[2]);a[1]+=(v[2]-w[2])*(v[0]+w[0]);a[2]+=(v[0]-w[0])*(v[1]+w[1]);}let n=Math.hypot(...a)||1;return a.map(v=>v/n)}
+export function bounds(faces){let lo=[Infinity,Infinity,Infinity],hi=[-Infinity,-Infinity,-Infinity];for(const f of faces)for(const p of f.p)for(let j=0;j<3;j++){lo[j]=Math.min(lo[j],p[j]);hi[j]=Math.max(hi[j],p[j])}return{lo,hi}}
+const dirs=['N','E','S','W'];
+export function faceDir(n){return Math.abs(n[0])>Math.abs(n[1])?(n[0]>0?'E':'W'):(n[1]>0?'N':'S')}
+export function parseModel(raw,filename,settings={}){
+ const ext=filename.toLowerCase().split('.').pop(),faces=[];let rooms=[],stores=new Set();
+ const unit=(v)=>({meters:1,metres:1,m:1,millimeters:.001,millimetres:.001,mm:.001,centimeters:.01,cm:.01,feet:.3048,ft:.3048,inches:.0254}[String(v||'m').toLowerCase()]??1);
+ let factor=unit(settings.units);
+ function push(poly,kind='wall',label='',room='',level='',host=''){if(!Array.isArray(poly)||poly.length<3)return;let p=poly.map(v=>[Number(v[0]),Number(v[1]),Number(v[2]??0)]);if(p.some(x=>x.some(n=>!Number.isFinite(n))))throw Error('The file contains an invalid vertex.');if(faces.length>=30000)throw Error('Use a simplified design with fewer than 30,000 faces.');faces.push({p,kind,label,room,level,host})}
+ if(ext==='obj'){
+  let pts=[],group='Model';for(let l of raw.split(/\r?\n/)){let a=l.trim().split(/\s+/),type=a.shift();if(type==='v'){let n=a.slice(0,3).map(Number);if(n.length!==3||n.some(v=>!Number.isFinite(v)))throw Error('Invalid OBJ vertex.');pts.push(settings.up==='Y'?[n[0],-n[2],n[1]]:n)}
+  if(type==='g'||type==='o')group=a.join(' ')||'Model';if(type==='f'){let p=a.map(s=>{let i=Number(s.split('/')[0]);return pts[i>0?i-1:pts.length+i]});if(p.some(x=>!x))throw Error('An OBJ face refers to a missing vertex.');push(p,/glass|window|glaz/i.test(group)?'glass':/shade|fin|louver/i.test(group)?'shade':'wall',group)}}
+ }else if(ext==='geojson'){
+  const data=JSON.parse(raw),items=data.type==='FeatureCollection'?data.features:data.type==='Feature'?[data]:[{geometry:data,properties:{}}];
+  let polys=[],origin=null;factor=1;
+  for(const f of items){const g=f.geometry||{},group=g.type==='Polygon'?[g.coordinates]:g.type==='MultiPolygon'?g.coordinates:[];for(const rings of group){if(rings.length!==1)throw Error('For courtyard footprints with holes, import OBJ or HBJSON.');let ring=rings[0].slice();if(ring.length<4)continue;let a=ring[0],b=ring.at(-1);if(a[0]===b[0]&&a[1]===b[1])ring.pop();if(ring.some(p=>p.length<2||!Number.isFinite(p[0])||!Number.isFinite(p[1])||Math.abs(p[0])>180||Math.abs(p[1])>90))throw Error('GeoJSON footprints require longitude and latitude coordinates.');origin=origin||ring[0];let points=ring.map(([lon,lat])=>[(lon-origin[0])*111320*Math.cos(origin[1]*Math.PI/180),(lat-origin[1])*110574]);let area=points.reduce((n,p,i)=>{let q=points[(i+1)%points.length];return n+p[0]*q[1]-q[0]*p[1]},0);if(area<0)points.reverse();let storeys=Math.max(1,Math.min(120,Math.round(Number(f.properties?.['building:levels']||settings.storeys)||1))),height=Number(f.properties?.height)||storeys*3.5;if(height<=0||height>1000)throw Error('The footprint height must be between 0 and 1,000 metres.');polys.push({points,storeys,height})}}
+  if(!polys.length)throw Error('No Polygon or MultiPolygon footprint was found.');
+  for(const [i,{points,storeys,height}] of polys.entries()){for(let j=0;j<storeys;j++){let z=j*height/storeys,Z=(j+1)*height/storeys,level='Level '+(j+1),room='Building '+(i+1)+' · '+level;stores.add(level);rooms.push({id:room,name:room,level});let plane=Z=>points.map(p=>[...p,Z]);push(plane(z),'floor',room+' floor',room,level);
+  for(let k=0;k<points.length;k++){let a=points[k],b=points[(k+1)%points.length];let w=[ [...a,z],[...b,z],[...b,Z],[...a,Z] ];push(w,'wall',room+' wall '+k,room,level);
+  const lerp=t=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];push([[...lerp(.08),z+(Z-z)*.18],[...lerp(.92),z+(Z-z)*.18],[...lerp(.92),z+(Z-z)*.85],[...lerp(.08),z+(Z-z)*.85]],'glass',room+' window '+k,room,level,room+' wall '+k)}
+  if(j===storeys-1)push(plane(Z),'roof',room+' roof',room,level)}}
+ }else if(ext==='hbjson'||ext==='json'){
+  let j=JSON.parse(raw);if(j.type!=='Model'||!Array.isArray(j.rooms))throw Error('Choose a Honeybee Model HBJSON, or a Frond study under Open study.');factor=unit(j.units);
+  function shade(s,room='',level='',host=''){push(s.geometry?.boundary,'shade',s.identifier,room,level,host)}
+  for(let r of j.rooms){let level=r.story||'',id=r.identifier||r.display_name||'Room';rooms.push({id,name:r.display_name||id,level});if(level)stores.add(level);
+   for(let f of r.faces||[]){let t=String(f.face_type||'Wall').toLowerCase(),k=t.includes('roof')?'roof':t.includes('floor')?'floor':'wall';let interior=f.boundary_condition?.type==='Surface';push(f.geometry?.boundary,interior?'internal':k,f.identifier,id,level);
+    for(let a of f.apertures||[]){push(a.geometry?.boundary,'glass',a.identifier,id,level,f.identifier);for(let s of [...a.outdoor_shades||[],...a.indoor_shades||[]])shade(s,id,level,f.identifier)}
+    for(let s of [...f.outdoor_shades||[],...f.indoor_shades||[]])shade(s,id,level,f.identifier)
+   }for(let s of r.outdoor_shades||[])shade(s)}
+  for(let s of j.orphaned_shades||[])shade(s);
+ }else throw Error('Supported geometry formats are OBJ and HBJSON.');
+ if(!faces.length)throw Error('No polygon faces were found in this file.');
+ let b=bounds(faces),center=[(b.lo[0]+b.hi[0])/2,(b.lo[1]+b.hi[1])/2,b.lo[2]];for(let f of faces)f.p=f.p.map(p=>p.map((v,i)=>(v-center[i])*factor));
+ b=bounds(faces);if(Math.max(...b.hi.map((v,i)=>v-b.lo[i]))<.00001)throw Error('The model has no usable dimensions.');
+ let stories=[...stores].sort((a,b)=>{const lowest=s=>Math.min(...faces.filter(f=>f.level===s).map(f=>Math.min(...f.p.map(p=>p[2]))));return lowest(a)-lowest(b)});
+ return{file:filename,type:ext==='obj'?'OBJ':ext==='geojson'?'GeoJSON':'HBJSON',faces,rooms,stories,bounds:b};
+}
+const baseColors={wall:'#d9cfb7',roof:'#d8d5c4',floor:'#cbc5b3',glass:'#789391',shade:'#a98364',internal:'#cbbfae'};
+function face(a,p,c,tag=null){a.push({p,c,tag})}
+function box(a,x,y,z,w,d,h,c,tag=null){
+ if(w<=0||d<=0||h<=0)return;const X=x+w,Y=y+d,Z=z+h;
+ face(a,[[x,y,Z],[X,y,Z],[X,Y,Z],[x,Y,Z]],c,tag);
+ face(a,[[x,y,z],[X,y,z],[X,y,Z],[x,y,Z]],c,tag);
+ face(a,[[X,y,z],[X,Y,z],[X,Y,Z],[X,y,Z]],c,tag);
+ face(a,[[X,Y,z],[x,Y,z],[x,Y,Z],[X,Y,Z]],c,tag);
+ face(a,[[x,Y,z],[x,y,z],[x,y,Z],[x,Y,Z]],c,tag);
+}
+function colorMix(a,b,t){let n=parseInt(a.slice(1),16),m=parseInt(b.slice(1),16);return '#'+[16,8,0].map(i=>Math.round(((n>>i)&255)*(1-t)+((m>>i)&255)*t).toString(16).padStart(2,'0')).join('')}
+function hash(n){let x=Math.sin(n*78.233+2.13)*43758.5453;return x-Math.floor(x)}
+function leaf(a,x,y,z,r,seed,col){
+ let sides=7,rows=[],heights=[-.72,-.32,.37,.83],widths=[.48,1,.85,.27];
+ for(let j=0;j<4;j++){let ring=[];for(let i=0;i<sides;i++){let q=2*Math.PI*(i+.35*(j%2))/sides,k=r*widths[j]*(.85+.28*hash(seed+i*9+j));ring.push([x+Math.cos(q)*k,y+Math.sin(q)*k,z+r*heights[j]+r*.12*hash(seed+j*7+i)])}rows.push(ring)}
+ for(let j=0;j<3;j++)for(let i=0;i<sides;i++){let n=(i+1)%sides,c=colorMix(col,'#b1b990',.25*hash(seed+i*4+j));face(a,[rows[j][i],rows[j][n],rows[j+1][n],rows[j+1][i]],c)}
+ face(a,rows[3],colorMix(col,'#acb58b',.22));
+}
+function tree(a,x,y,z,h,s){box(a,x-.12*h/4,y-.12*h/4,z,.24*h/4,.24*h/4,h*.61,'#8b7c60');leaf(a,x,y,z+h*.72,h*.37,s,s%2?'#78865f':'#899675');leaf(a,x+h*.14,y-h*.06,z+h*.62,h*.265,s+7,'#798662')}
+function faceFrame(dir,x,y,w,d,z,h,extra={}){let o,u,n,len;
+ if(dir==='S'){o=[x,y,z];u=[1,0];n=[0,-1];len=w}
+ if(dir==='N'){o=[x+w,y+d,z];u=[-1,0];n=[0,1];len=w}
+ if(dir==='W'){o=[x,y+d,z];u=[0,-1];n=[-1,0];len=d}
+ if(dir==='E'){o=[x+w,y,z];u=[0,1];n=[1,0];len=d}
+ return{o,u,n,len,h,dir,...extra}}
+function pt(f,u,v,k=0){return[f.o[0]+u*f.u[0]+k*f.n[0],f.o[1]+u*f.u[1]+k*f.n[1],f.o[2]+v]}
+function wallQuad(a,f,u,v,U,V,k,col,tag){face(a,[pt(f,u,v,k),pt(f,U,v,k),pt(f,U,V,k),pt(f,u,V,k)],col,tag)}
+function blade(a,f,u,v,U,V,k,K,c,tag,tilt=0){let b=[pt(f,u,v,k),pt(f,U,v,k),pt(f,U,V,k),pt(f,u,V,k)],p=[pt(f,u+tilt,v,K),pt(f,U+tilt,v,K),pt(f,U+tilt,V,K),pt(f,u+tilt,V,K)];face(a,p,c,tag);for(let i=0;i<4;i++){let j=(i+1)%4;face(a,[b[i],b[j],p[j],p[i]],c,tag)}}
+function inside(x,y,poly){let on=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){let [a,b]=poly[i],[c,d]=poly[j];if(((b>y)!==(d>y))&&x<(c-a)*(y-b)/(d-b)+a)on=!on}return on}
+function allowed(f,u,v){return !f.clip||inside(u,v,f.clip)}
+function buildSystem(a,f,v,isTarget){
+ const tag={dir:f.dir,level:f.level,room:f.room},W=f.len,H=f.h,k=.20;
+ if(!isTarget||a.length>165000)return;
+ if(v.wall==='living'&&f.wallHost){for(let i=0;i<W;i+=1.25){if(!allowed(f,i+.4,H*.38))continue;wallQuad(a,f,i,0,Math.min(W,i+1.18),H*.71,.06,i%2?'#70845d':'#83956c',tag)}}
+ if(v.wall==='ovf'&&f.wallHost){for(let i=0;i<W;i+=2.5){if(allowed(f,i+.3,H*.28))blade(a,f,i+.05,.1,Math.min(i+2.43,W),H*.36,.08,.25,'#c2b099',tag)}}
+ if(!f.shadeHost||v.system==='original')return;
+ const spacing=Math.max(.5,Number(v.spacing)||1.8),depth=Number(v.depth)||.9,angle=(Number(v.angle)||0)*Math.PI/180;
+ if(v.system==='fins'||v.system==='kinetic'){let count=Math.max(1,Math.min(80,Math.round(W/spacing)));for(let i=0;i<count;i++){let u=(i+.5)*W/count;if(!allowed(f,u,H*.5))continue;let t=Math.min(W/count*.21,.20);blade(a,f,u-t/2,.03,u+t/2,H-.03,k,k+Math.max(.09,depth*Math.cos(angle)),v.system==='fins'?'#bb7854':'#82959b',tag,depth*Math.sin(angle))}}
+ if(v.system==='horizontal'||v.system==='pv'){let count=v.system==='pv'?1:Math.max(1,Math.min(20,Math.round(H/Math.max(.35,spacing*.6))));for(let i=0;i<count;i++){let z=H-(i+.12)*H/count,dx=v.system==='pv'?Math.max(depth,1.2):depth;if(!allowed(f,W*.5,z-.08))continue;blade(a,f,0,z-.13,W,z,k,k+dx,v.system==='pv'?'#526d79':'#b59373',tag);if(v.system==='pv'){for(let q=.4;q<W;q+=spacing)face(a,[pt(f,q,z+.01,k),pt(f,q+.04,z+.01,k),pt(f,q+.04,z+.01,k+dx),pt(f,q,z+.01,k+dx)],'#a7bec4',tag)}}}
+ if(v.system==='trellis'||v.system==='perforated'||v.system==='bionic'){
+ let green=v.system==='trellis',bio=v.system==='bionic',step=Math.max(.52,spacing*.65,Math.sqrt(W*H/1200));for(let i=0;i<W;i+=step){for(let j=0;j<H;j+=step){let u=Math.min(i+step*.5,W-.1),z=Math.min(j+step*.5,H-.1);if(!allowed(f,u,z))continue;let rr=step*.46*Math.sqrt((v.coverage||70)/100),kk=k+Math.min(depth,1.3);if(green){wallQuad(a,f,i,Math.max(0,j),Math.min(i+.05,W),Math.min(H,j+step),kk,'#8a8b75',tag);wallQuad(a,f,i,j,Math.min(W,i+step),Math.min(j+.05,H),kk,'#898a72',tag);let r=hash(i*12+j*3+f.o[2]);if(r<(v.coverage||70)/100)leaf(a,...pt(f,u,z,kk+.12),rr*(1+.35*r),Math.round(i*53+j),r>.55?'#839a62':'#708451')}
+ else if(bio){let amt=.25+.65*Math.sin(angle);face(a,[pt(f,u-rr,z,kk),pt(f,u,z-rr,kk+amt),pt(f,u+rr,z,kk),pt(f,u,z+rr,kk+amt)],'#b29367',tag)}
+ else{wallQuad(a,f,i,j,Math.min(i+step*(v.coverage/170),W),Math.min(j+step,H),kk,'#b37955',tag);wallQuad(a,f,i,j,Math.min(W,i+step),Math.min(H,j+step*(v.coverage/220)),kk,'#b37955',tag)}}}}
+ if(v.system==='custom'&&v.custom){let b=v.custom.bounds,range=b.hi.map((n,i)=>n-b.lo[i]),width=Math.max(.2,Math.min(W,spacing)),height=H,num=Math.max(1,Math.min(24,Math.floor(W/width)));for(let i=0;i<num;i++){let stride=W/num;if(!allowed(f,(i+.5)*stride,H*.5))continue;for(let cf of v.custom.faces){let p=cf.p.map(q=>pt(f,i*stride+(q[0]-b.lo[0])/Math.max(.001,range[0])*stride,(q[2]-b.lo[2])/Math.max(.001,range[2])*height,k+(q[1]-b.lo[1])/Math.max(.001,range[1])*depth));face(a,p,'#aa8468',tag)}}}
+}
+function rotatedDir(dir,angle){return dirs[(dirs.indexOf(dir)+Math.round((angle||0)/90)+4)%4]}
+function targeted(v,dir,level){return(v.elevation==='all'||v.elevation===rotatedDir(dir,v.rotation))&&(v.floor==='all'||Number(v.floor)===level)}
+function buildBase(project,v,opt={}){
+ let a=[],shadows=[],floors=Math.max(1,project.levels||7),maxFloor=opt.cut?Math.max(1,Math.min(floors,opt.cut)):floors;
+ if(project.model){
+ const m=project.model,b=m.bounds,H=Math.max(.01,b.hi[2]-b.lo[2]);const hasGlass=m.faces.some(f=>f.kind==='glass');let hosts=[],hasStory=m.stories.length===floors;const byId=new Map(m.faces.map(f=>[f.label,f]));
+ for(const f of m.faces){let n=normal(f.p),mid=f.p.reduce((s,p)=>s.map((x,i)=>x+p[i]/f.p.length),[0,0,0]);let level=f.level&&hasStory?m.stories.indexOf(f.level)+1:Math.max(1,Math.min(floors,Math.floor((mid[2]-.001)/H*floors)+1));let cutZ=maxFloor*H/floors;if((level>maxFloor&&(!opt.cut||Math.min(...f.p.map(p=>p[2]))>=cutZ))||f.kind==='internal'&&!opt.cut)continue;
+ if(f.kind==='shade'&&v.system!=='original'){let parent=byId.get(f.host),facing=parent?normal(parent.p):[mid[0]/Math.max(.01,b.hi[0]-b.lo[0]),mid[1]/Math.max(.01,b.hi[1]-b.lo[1]),0];if(targeted(v,faceDir(facing),level)&&(!v.room||v.room==='all'||v.room===f.room))continue}
+ if(n[0]*mid[0]+n[1]*mid[1]<0&&m.type==='OBJ')n=n.map(x=>-x);let dir=faceDir(n),vertical=Math.abs(n[2])<.45,tag={dir:vertical?dir:null,level,room:f.room};if(f.kind==='roof'&&v.roof==='green')face(a,f.p,'#7f9567',tag);else{let p=f.kind==='glass'?f.p.map(p=>[p[0]+n[0]*.012,p[1]+n[1]*.012,p[2]]):f.p;face(a,p,baseColors[f.kind]||baseColors.wall,tag)}
+ if(vertical&&['wall','glass'].includes(f.kind)&&targeted(v,dir,level)){let l=Math.hypot(n[0],n[1]),nx=n[0]/l,ny=n[1]/l,u=[-ny,nx],coord=f.p.map(p=>p[0]*u[0]+p[1]*u[1]),min=Math.min(...coord),max=Math.max(...coord),zlo=Math.min(...f.p.map(p=>p[2])),zhi=Math.max(...f.p.map(p=>p[2])),k=mid[0]*nx+mid[1]*ny,len=max-min,h=zhi-zlo;if(len>.14&&h>.14){let frame={o:[min*u[0]+k*nx,min*u[1]+k*ny,zlo],u,n:[nx,ny],len,h,dir,level,room:f.room,clip:f.p.map((p,i)=>[coord[i]-min,p[2]-zlo]),wallHost:f.kind==='wall',shadeHost:hasGlass?f.kind==='glass':f.kind==='wall'};hosts.push(frame)}}}
+ for(let f of hosts)buildSystem(a,f,v,!v.room||v.room==='all'||v.room===f.room);
+ if(v.roof==='green'&&m.type==='OBJ')for(const f of m.faces){let n=normal(f.p),z=Math.min(...f.p.map(p=>p[2]));if(Math.abs(n[2])>.9&&z>H*.75&&maxFloor===floors)face(a,f.p.map(p=>[p[0],p[1],p[2]+.016]),'#819268')}
+ return{poly:a,bounds:b,shadows:[[b.lo[0],b.lo[1],b.hi[0]-b.lo[0],b.hi[1]-b.lo[1],H]],demo:false}}
+ // A stepped office block with a planted terrace, glazed bays and a recessed plinth.
+ const fh=3.5;let last;
+ box(a,-17.1,-12.2,-.37,34.2,24.4,.37,'#c6c5b4');box(a,-16.15,-11.25,0,32.3,22.5,.23,'#e0d7c3');
+ for(let i=0;i<maxFloor;i++){let x=i===0?-14.2:i<3?-14:-12.3,y=i===0?-9.7:i<3?-9.5:-6.5,w=i===0?28.4:i<3?28:19.9,d=i===0?19.4:i<3?19:15.7,z=.28+i*fh;last=[x,y,w,d,z+fh];if(v.mass==='bar'&&i>0){x=-13.7;y=-8.4;w=27.4;d=16.8;last=[x,y,w,d,z+fh]}let hot=i===0?'#a8a18e':'#d9c7ac';box(a,x-.32,y-.32,z,w+.64,d+.64,.33,hot);
+ for(let dir of dirs){let f=faceFrame(dir,x,y,w,d,z+.33,fh-.36,{level:i+1,shadeHost:true,wallHost:true,room:dir+' perimeter · Level '+(i+1)}),tag={dir,level:i+1,room:f.room};let bays=Math.max(2,Math.round(f.len/1.83));for(let j=0;j<bays;j++){let u=j*f.len/bays,U=(j+1)*f.len/bays,r=hash(i*48+j*7+dir.charCodeAt(0)),col=['#889c9b','#788e91','#8fa2a0','#819598','#9aaca6'][Math.floor(r*5)];wallQuad(a,f,u+.025,.08,U-.02,f.h-.08,.015,col,tag);if(r>.71){wallQuad(a,f,u+.04,.10,U-.04,f.h*(.47+r*.25),.028,'#a0a9a0',tag)}wallQuad(a,f,u,.02,u+.065,f.h,.042,'#525f5d',tag);wallQuad(a,f,u+.01,f.h*.83,U,f.h*.83+.045,.047,'#6a7875',tag);if(j%3===0)blade(a,f,u-.06,0,u+.15,f.h,.05,.23,'#d7c4a7',tag)}
+ wallQuad(a,f,0,.03,f.len,.12,.051,'#b5ae98',tag);let opaque=Math.max(0,1-(v.wwr??74)/100)*fh;
+ wallQuad(a,f,0,.02,f.len,Math.min(f.h*.84,opaque*.65),.055,'#ccbaa0',tag);
+ wallQuad(a,f,0,f.h-opaque*.22,f.len,f.h,.055,'#cbbba2',tag);
+ buildSystem(a,f,v,targeted(v,dir,i+1)&&(!v.room||v.room==='all'||v.room===f.room));}
+ box(a,x-.42,y-.42,z+fh-.23,w+.84,d+.84,.27,'#e2cfb1');
+ if(i===2&&i<maxFloor-1&&v.mass!=='bar'){box(a,8.7,-8.4,z+fh+.055,3.9,16.8,.30,'#abac8b');for(let n=0;n<6;n++)tree(a,10.5,-6.8+n*2.55,z+fh+.3,2.15,n+4);box(a,-12.8,-8.7,z+fh+.04,20.4,1.25,.29,'#979f7f')}
+ }
+ if(last){let [x,y,w,d,z]=last;box(a,x-.1,y-.1,z+.02,w+.2,d+.2,.16,'#d7d0ba');box(a,x+.55,y+.55,z+.16,w-1.1,d-1.1,.09,v.roof==='green'?'#87966e':'#c7c8b5');for(let k of [[x,y,w,.13],[x,y,.13,d],[x,y+d-.13,w,.13],[x+w-.13,y,.13,d]])box(a,k[0],k[1],z+.12,k[2],k[3],.4,'#dfd1b8');
+ if(maxFloor===floors){box(a,x+w*.43,y+d*.48,z+.24,4.1,3.4,1.25,'#c9c5ab');box(a,x+w*.43-.12,y+d*.48-.12,z+1.49,4.34,3.64,.15,'#e4d8ba');box(a,x+2.1,y+2.2,z+.24,4.5,2.2,.42,'#aeb2a1');for(let i=0;i<4;i++)box(a,x+2.25+i, y+2.37,z+.65,.63,1.7,.055,'#929d8d')}
+ if(opt.cut){for(let j=0;j<3;j++)box(a,x+w*(j+1)/4,y+.1,z+.28,.14,d-.2,.8,'#aeaa96');box(a,x+.1,y+d*.54,z+.28,w-.2,.15,.8,'#aeaa96')}}
+ if(opt.landscape!==false){for(let [x,y,h,s]of[[-15,-7,3.7,3],[-15.1,4.2,4.1,4],[14.8,-6.2,3.9,6],[14.9,3.1,4.1,8],[7.7,-10.2,3.5,1]])tree(a,x,y,.22,h,s);
+ box(a,-7.7,-11.35,.25,7.5,1,.21,'#b7b6a0');for(let i=0;i<4;i++)box(a,-8.2,-11.73-.30*i,.02,8.4,.31,.2-.04*i,'#d6d0bb')}
+ shadows=[[-14,-9.5,28,19,10.7],[-12.3,-6.5,19.9,15.7,maxFloor*fh+.8]];
+ return{poly:a,bounds:{lo:[-17,-12,0],hi:[17,12,floors*fh+2]},shadows,demo:true}
+}
+export {colorMix}
+
+export function buildScene(project,v,opt={}){
+ const scene=buildBase(project,effective(v),opt);
+ if(project.model&&opt.cut){let b=project.model.bounds,coeff=opt.cut/Math.max(1,project.levels),hi=b.lo[2]+(b.hi[2]-b.lo[2])*coeff;scene.poly=scene.poly.flatMap(f=>{let p=[];for(let i=0;i<f.p.length;i++){let a=f.p[i],b=f.p[(i+1)%f.p.length];if(a[2]<=hi)p.push(a);if((a[2]>hi)!==(b[2]>hi)){let t=(hi-a[2])/(b[2]-a[2]);p.push([a[0]+t*(b[0]-a[0]),a[1]+t*(b[1]-a[1]),hi])}}return p.length>=3?[{...f,p}]:[]})}
+ if(!project.model&&v.mass==='twins'){let output=[];for(const sign of [-1,1])for(const f of scene.poly)output.push({...f,p:f.p.map(([x,y,z])=>[x*.65+sign*12,y*.65+sign*2.5,z])});scene.poly=output;scene.shadows=scene.shadows.flatMap(([x,y,w,d,h])=>[-1,1].map(s=>[x*.65+s*12,y*.65+s*2.5,w*.65,d*.65,h]));scene.bounds=bounds(output)}
+ const angle=(v.rotation||0)*Math.PI/180;if(angle){let c=Math.cos(angle),s=Math.sin(angle),rot=([x,y,z])=>[x*c+y*s,-x*s+y*c,z];scene.poly=scene.poly.map(f=>({...f,p:f.p.map(rot),tag:f.tag?{...f.tag,dir:f.tag.dir?rotatedDir(f.tag.dir,v.rotation):null}:null}));scene.bounds=bounds(scene.poly);scene.shadows=scene.shadows.map(([x,y,w,d,h])=>{let pts=[[x,y,0],[x+w,y,0],[x+w,y+d,0],[x,y+d,0]].map(rot),b=bounds([{p:pts}]);return[b.lo[0],b.lo[1],b.hi[0]-b.lo[0],b.hi[1]-b.lo[1],h]})}return scene
+}
