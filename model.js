@@ -1,30 +1,35 @@
 export const systems={
  original:{name:'Reference envelope',family:'Reference',host:'all',icon:'building-2',color:'#9a9c92',mech:'Existing envelope'},
- trellis:{name:'Green façade',family:'Nature-based',host:'window',icon:'sprout',color:'#008300',mech:'Seasonal plant shade'},
- brick:{name:'Perforated brick screen',family:'Vernacular · nature-inspired',host:'window',icon:'grid-3x3',color:'#eb6834',mech:'Fixed shade'},
+ trellis:{name:'Indirect green façade',family:'Nature-based',host:'window',icon:'sprout',color:'#008300',mech:'Seasonal plant shade'},
+ brick:{name:'Perforated screen',family:'Nature-inspired · vernacular',host:'window',icon:'grid-3x3',color:'#eb6834',mech:'Fixed shade with air gap'},
  ovf:{name:'Opaque ventilated façade',family:'Nature-inspired',host:'wall',icon:'columns-3',color:'#e87ba4',mech:'Ventilated cavity'},
- datepalm:{name:'Date-palm fibre insulation',family:'Nature-derived',host:'layer',icon:'layers-2',color:'#eda100',mech:'Thermal resistance'},
+ datepalm:{name:'Bio-based insulation',family:'Nature-derived · bio-based',host:'layer',icon:'layers-2',color:'#eda100',mech:'Thermal resistance'},
  biopcm:{name:'Bio-based PCM',family:'Nature-derived',host:'layer',icon:'box',color:'#2a78d6',mech:'Latent heat storage'},
  greenroof:{name:'Extensive green roof',family:'Nature-based',host:'roof',icon:'sprout',color:'#1baf7a',mech:'Roof insulation and evapotranspiration'},
  custom:{name:'Custom module',family:'Imported design',host:'window',icon:'component',color:'#947866',mech:'Imported geometry'}};
 export const hosts={window:'In front of windows',wall:'Opaque wall',layer:'Wall layer',roof:'Roof',all:'Whole building'};
 export const params={
  trellis:[['depth','Distance from glass',.2,1.5,.05,' m'],['spacing','Trellis spacing',.6,3,.1,' m'],['coverage','Leaf coverage',15,100,5,'%']],
- brick:[['depth','Distance from glass',.1,1.2,.05,' m'],['spacing','Module size',.6,3,.1,' m'],['coverage','Open area',10,70,5,'%']],
+ brick:[['depth','Distance from glass',.1,1.2,.05,' m'],['spacing','Module size',.6,3,.1,' m'],['coverage','Open area',10,80,5,'%'],['screenThick','Screen thickness',.05,.2,.01,' m']],
  ovf:[['cavity','Cavity depth',.04,.3,.01,' m']],
  datepalm:[['thick','Insulation thickness',.04,.2,.01,' m']],
  biopcm:[['pcmThick','PCM thickness',.005,.05,.005,' m'],['melt','Melting temperature',22,32,.5,' °C'],['nightAch','Night ventilation',0,10,.5,' ach']],
  greenroof:[['substrate','Substrate depth',.06,.3,.01,' m'],['lai','Leaf area index',.5,5,.1,''],['irrigation','Irrigation',0,6,.5,' L/m²·day']],
  custom:[['depth','Projection depth',.2,3,.1,' m'],['spacing','Module width',.6,4,.1,' m']]};
-export const claddings={brick:'Brick',terracotta:'Terracotta',biobased:'Bio-based panel'};
+export const claddings={terracotta:'Terracotta',stone:'Stone (dry fixed)',gfrc:'GFRC',acp:'Aluminium composite panel',brick:'Brick',biobased:'Bio-based panel'};
+// Bio-based insulation library. Typical dry conductivity (W/m·K) from the literature; real products vary with density and moisture.
+export const insulations={datepalm:['Date-palm fibre',.06,'#d8bf88'],straw:['Straw',.052,'#e3cf8a'],reed:['Reed',.054,'#c4ad74'],cork:['Cork',.039,'#a9805a'],kenaf:['Kenaf',.04,'#d6cfa8']};
+export const screens={brick:['Brick','#b5623b','#d39064'],terracotta:['Terracotta','#c27a4e','#dea27a'],grc:['GRC','#cfcac0','#e6e2da']};
+// Existing façade of the designer's building = the reference. Labels follow the common Iranian façade types (Keikha & Jafari 2026); U in W/m²·K is indicative.
+export const existingFacades={granite:['Brick with granite facing',1.6],facebrick:['Face brick',1.8],stone:['Dry-fixed stone on brick',1.5],ceramic:['Ceramic cladding',1.6],terracotta:['Terracotta cladding',1.5],stucco:['Stucco on brick',1.9],acp:['Aluminium composite panel',1.4],thermowood:['ThermoWood cladding',1.3],gfrc:['GFRC panel',1.5],curtain:['Glass curtain wall',2.7],code:['Insulated wall to code',.4]};
 export const addons={pv:'PV canopy',coating:'Light reflective finish'};
-export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
+export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',insul:'datepalm',screen:'brick',screenThick:.1,existing:'granite',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
 export const stateDefault=()=>({schema:'frond-1',demo:true,name:'Terrace Office',location:'Yazd, Iran',use:'Office',levels:7,model:null,active:'v2',variants:[
  {id:'base',name:'Reference envelope',system:'original',elevation:'all'},
- {id:'v2',name:'Green façade · west',system:'trellis'},
- {id:'v3',name:'Perforated brick · west',system:'brick',coverage:30},
+ {id:'v2',name:'Indirect green façade · west',system:'trellis'},
+ {id:'v3',name:'Perforated screen · west',system:'brick',coverage:20,depth:1},
  {id:'v4',name:'OVF · terracotta',system:'ovf'},
- {id:'v5',name:'Date-palm insulation',system:'datepalm',elevation:'all'},
+ {id:'v5',name:'Bio-based insulation · date palm',system:'datepalm',elevation:'all'},
  {id:'v6',name:'Bio-PCM + night vent',system:'biopcm',elevation:'all'},
  {id:'v7',name:'Green roof',system:'greenroof',elevation:'all'}
 ].map(x=>({...structuredClone(paramDefaults),...x})),checked:['base','v2','v3','v4','v5','v6','v7']});
@@ -128,8 +133,8 @@ function buildSystem(a,f,v,isTarget){
  if(!isTarget||a.length>165000)return;
  if(v.wall==='living'&&f.wallHost){for(let i=0;i<W;i+=1.25){if(!allowed(f,i+.4,H*.38))continue;wallQuad(a,f,i,0,Math.min(W,i+1.18),H*.71,.06,i%2?'#70845d':'#83956c',tag)}}
  const bands=f.bands||[[0,H]];
- if(v.wall==='ovf'&&f.wallHost){const cav=Math.max(.04,Number(v.cavity)||.12)*1.5,col={brick:'#b9653f',terracotta:'#c98257',biobased:'#a88f5f'}[v.cladding]||'#c98257';for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=0;i<W;i+=1.2){let u1=Math.min(W,i+1.17),mid=(i+u1)/2;if(!allowed(f,mid,(b0+b1)/2))continue;blade(a,f,i+.02,b0,i+.07,b1,.055,.06+cav,'#6f6b63',tag);blade(a,f,i+.015,b0+.015,u1,b1-.015,.06+cav,.085+cav,colorMix(col,'#ffffff',hash(i*7+b0*3)*.16),tag)}}}
- if(v.layer==='datepalm'&&f.wallHost){const t=Math.max(.04,Number(v.thick)||.1)*.7;for(const [b0,b1] of bands){if(b1-b0<.1)continue;for(let i=0;i<W;i+=1){let u1=Math.min(W,i+1);if(!allowed(f,(i+u1)/2,(b0+b1)/2))continue;blade(a,f,i,b0,u1,b1,.056,.056+t,'#d8bf88',tag);for(let q=i+.07;q<u1-.02;q+=.14)wallQuad(a,f,q,b0+.012,q+.035,b1-.012,.06+t,'#b3955d',tag)}}}
+ if(v.wall==='ovf'&&f.wallHost){const cav=Math.max(.04,Number(v.cavity)||.12)*1.5,col={brick:'#b9653f',terracotta:'#c98257',biobased:'#a88f5f',stone:'#cfc4ae',gfrc:'#d8d4cc',acp:'#bcc3c7'}[v.cladding]||'#c98257';for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=0;i<W;i+=1.2){let u1=Math.min(W,i+1.17),mid=(i+u1)/2;if(!allowed(f,mid,(b0+b1)/2))continue;blade(a,f,i+.02,b0,i+.07,b1,.055,.06+cav,'#6f6b63',tag);blade(a,f,i+.015,b0+.015,u1,b1-.015,.06+cav,.085+cav,colorMix(col,'#ffffff',hash(i*7+b0*3)*.16),tag)}}}
+ if(v.layer==='datepalm'&&f.wallHost){const t=Math.max(.04,Number(v.thick)||.1)*.7;for(const [b0,b1] of bands){if(b1-b0<.1)continue;for(let i=0;i<W;i+=1){let u1=Math.min(W,i+1);if(!allowed(f,(i+u1)/2,(b0+b1)/2))continue;blade(a,f,i,b0,u1,b1,.056,.056+t,(insulations[v.insul]||insulations.datepalm)[2],tag);for(let q=i+.07;q<u1-.02;q+=.14)wallQuad(a,f,q,b0+.012,q+.035,b1-.012,.06+t,'#b3955d',tag)}}}
  if(v.layer==='pcm'&&f.wallHost){for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=.04;i+.3<W;i+=.36)for(let j=b0+.03;j+.2<b1;j+=.3){if(!allowed(f,i+.15,j+.1))continue;blade(a,f,i,j,i+.3,Math.min(b1-.03,j+.25),.056,.09,hash(i*3+j*11)>.5?'#7d8fca':'#95a5d8',tag)}}}
  if(!f.shadeHost||v.system==='original')return;
  const spacing=Math.max(.5,Number(v.spacing)||1.8),depth=Number(v.depth)||.9,angle=(Number(v.angle)||0)*Math.PI/180;
@@ -137,7 +142,7 @@ function buildSystem(a,f,v,isTarget){
  if(v.system==='horizontal'||v.system==='pv'){let count=v.system==='pv'?1:Math.max(1,Math.min(20,Math.round(H/Math.max(.35,spacing*.6))));for(let i=0;i<count;i++){let z=H-(i+.12)*H/count,dx=v.system==='pv'?Math.max(depth,1.2):depth;if(!allowed(f,W*.5,z-.08))continue;blade(a,f,0,z-.13,W,z,k,k+dx,v.system==='pv'?'#526d79':'#b59373',tag);if(v.system==='pv'){for(let q=.4;q<W;q+=spacing)face(a,[pt(f,q,z+.01,k),pt(f,q+.04,z+.01,k),pt(f,q+.04,z+.01,k+dx),pt(f,q,z+.01,k+dx)],'#a7bec4',tag)}}}
  if(v.system==='perforated'){const open=Math.min(.7,Math.max(.1,(v.coverage||30)/100)),bl=.42,bh=.12,gap=bl*open/(1-open),kk=k+Math.min(depth,1.3);
   for(let u=0;u<=W;u+=3)if(allowed(f,Math.min(u,W-.05),H*.5))blade(a,f,Math.max(0,Math.min(u,W-.06)),0,Math.max(.06,Math.min(u+.06,W)),H,k,kk,'#5b5c58',tag);
-  for(let row=0,z=.02;z<H-.04;row++,z+=bh){let off=row%2?(bl+gap)/2:0;for(let u=-off;u<W;u+=bl+gap){let u0=Math.max(0,u),u1=Math.min(W,u+bl);if(u1-u0<.05||!allowed(f,(u0+u1)/2,z+bh/2))continue;let c=colorMix('#b5623b','#d39064',hash(row*31+Math.round(u*10)));face(a,[pt(f,u0,z,kk),pt(f,u1,z,kk),pt(f,u1,z+bh*.84,kk),pt(f,u0,z+bh*.84,kk)],c,tag);face(a,[pt(f,u0,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk+.1),pt(f,u0,z+bh*.84,kk+.1)],colorMix(c,'#ffffff',.18),tag)}}
+  for(let row=0,z=.02;z<H-.04;row++,z+=bh){let off=row%2?(bl+gap)/2:0;for(let u=-off;u<W;u+=bl+gap){let u0=Math.max(0,u),u1=Math.min(W,u+bl);if(u1-u0<.05||!allowed(f,(u0+u1)/2,z+bh/2))continue;let sc=screens[v.screen]||screens.brick,c=colorMix(sc[1],sc[2],hash(row*31+Math.round(u*10)));face(a,[pt(f,u0,z,kk),pt(f,u1,z,kk),pt(f,u1,z+bh*.84,kk),pt(f,u0,z+bh*.84,kk)],c,tag);face(a,[pt(f,u0,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk+.1),pt(f,u0,z+bh*.84,kk+.1)],colorMix(c,'#ffffff',.18),tag)}}
   return}
  if(v.system==='trellis'||v.system==='perforated'||v.system==='bionic'){
  let green=v.system==='trellis',bio=v.system==='bionic',step=Math.max(.52,spacing*.65,Math.sqrt(W*H/1200));for(let i=0;i<W;i+=step){for(let j=0;j<H;j+=step){let u=Math.min(i+step*.5,W-.1),z=Math.min(j+step*.5,H-.1);if(!allowed(f,u,z))continue;let rr=step*.46*Math.sqrt((v.coverage||70)/100),kk=k+Math.min(depth,1.3);if(green){wallQuad(a,f,i,Math.max(0,j),Math.min(i+.05,W),Math.min(H,j+step),kk,'#8a8b75',tag);wallQuad(a,f,i,j,Math.min(W,i+step),Math.min(j+.05,H),kk,'#898a72',tag);let r=hash(i*12+j*3+f.o[2]);if(r<(v.coverage||70)/100)leaf(a,...pt(f,u,z,kk+.12),rr*(1+.35*r),Math.round(i*53+j),r>.55?'#839a62':'#708451')}
