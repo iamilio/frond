@@ -1,5 +1,5 @@
-import {drawSolid,drawSoftware} from './solid.js?v=20261122b';
-import {normal,colorMix,systems} from './model.js?v=20261122b';
+import {drawSolid,drawSoftware} from './solid.js?v=20261122c';
+import {normal,colorMix,systems} from './model.js?v=20261122c';
 const ctxOf=c=>c.getContext('2d',{alpha:false});
 function configure(canvas,ctx){let w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)return;let d=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d)}ctx.setTransform(d,0,0,d,0,0);return[w,h]}
 function path(c,p){c.beginPath();c.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)c.lineTo(p[i][0],p[i][1]);c.closePath()}

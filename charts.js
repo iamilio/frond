@@ -110,7 +110,7 @@ export function barChart(host, {labels, values, color, unit, digits = 1, note}) 
 }
 
 // Scatter: neutral dots with a direct label each, the highlighted point in the accent colour.
-export function scatter(host, {points, xLabel, yLabel, accent}) {
+export function scatter(host, {points, xLabel, yLabel, accent, corner = 'Better ↗', xName = 'less cooling', yName = 'daylight (sDA)', ySuffix = '%'}) {
   const W = Math.max(320, host.clientWidth || 560), H = 320, m = {l: 48, r: 24, t: 30, b: 40};
   const svg = frame(host, W, H), iw = W - m.l - m.r, ih = H - m.t - m.b;
   const xs = points.map(p => p.x), ys = points.map(p => p.y);
@@ -121,7 +121,7 @@ export function scatter(host, {points, xLabel, yLabel, accent}) {
   txt(svg, m.l + iw, H - 4, xLabel, {'text-anchor': 'end', class: 'tick unit'});
   txt(svg, m.l - 40, m.t - 14, yLabel, {class: 'tick unit'});
   // Better corner label.
-  txt(svg, m.l + iw - 4, m.t + 12, 'Better ↗', {'text-anchor': 'end', class: 'tick corner'});
+  txt(svg, m.l + iw - 4, corner.includes('↘') ? m.t + ih - 8 : m.t + 12, corner, {'text-anchor': 'end', class: 'tick corner'});
   const boxes = points.map(p => ({x: X(p.x) - 8, y: Y(p.y) - 8, w: 16, h: 16}));
   const hits = (b) => boxes.some(q => b.x < q.x + q.w && b.x + b.w > q.x && b.y < q.y + q.h && b.y + b.h > q.y);
   for (const p of points) {
@@ -138,7 +138,7 @@ export function scatter(host, {points, xLabel, yLabel, accent}) {
   for (const p of points) {
     const cx = X(p.x), cy = Y(p.y);
     const hit = el('circle', {cx, cy, r: 14, fill: 'transparent', tabindex: 0}, svg);
-    const on = ev => { const b = svg.getBoundingClientRect(); showTip(ev?.clientX ?? b.left + cx / W * b.width, ev?.clientY ?? b.top + cy / H * b.height, p.label, [{value: fmt(p.x, 1) + '%', label: 'less cooling'}, {value: fmt(p.y) + '%', label: 'daylight (sDA)'}, ...(p.extra || [])]); };
+    const on = ev => { const b = svg.getBoundingClientRect(); showTip(ev?.clientX ?? b.left + cx / W * b.width, ev?.clientY ?? b.top + cy / H * b.height, p.label, [{value: fmt(p.x, 1) + '%', label: xName}, {value: fmt(p.y) + ySuffix, label: yName}, ...(p.extra || [])]); };
     hit.addEventListener('pointermove', on); hit.addEventListener('focus', () => on()); hit.addEventListener('pointerleave', hideTip); hit.addEventListener('blur', hideTip);
   }
 }
@@ -164,4 +164,46 @@ export function scoreMatrix(host, {rows, cols}) {
   lg.append(document.createTextNode('Score 1 (weak)'));
   for (const c of ramp) { const sw = document.createElement('i'); sw.className = 'ramp-step'; sw.style.background = c; lg.appendChild(sw); }
   lg.append(document.createTextNode('5 (strong)')); host.appendChild(lg);
+}
+
+// Horizontal bars, one row per item, each in its entity colour; value printed at the bar end in text ink.
+export function hbar(host, {items, unit, digits = 0, note, refLine}) {
+  const W = Math.max(300, host.clientWidth || 520), row = 30, m = {l: 150, r: 70, t: 22, b: 26}, H = m.t + m.b + row * items.length;
+  const svg = frame(host, W, H), iw = W - m.l - m.r;
+  const hi = Math.max(...items.map(i => i.value), refLine || 0), step = hi > 60 ? 20 : 10, top = Math.ceil(hi * 1.04 / step) * step;
+  const X = v => m.l + v / top * iw;
+  for (let v = 0; v <= top + 1e-9; v += step) { el('line', {x1: X(v), x2: X(v), y1: m.t - 4, y2: H - m.b, stroke: v === 0 ? ink.axis : ink.grid}, svg); txt(svg, X(v), H - 8, fmt(v), {'text-anchor': 'middle', class: 'tick'}); }
+  txt(svg, m.l + iw + m.r - 4, H - 8, unit, {'text-anchor': 'end', class: 'tick unit'});
+  items.forEach((it, i) => {
+    const y = m.t + i * row + 6, h = row - 12, w = Math.max(0, X(it.value) - X(0)), r = Math.min(4, w);
+    txt(svg, m.l - 10, y + h / 2 + 4, it.label, {'text-anchor': 'end', class: it.ref ? 'tick' : 'pt-label'});
+    el('path', {d: `M${X(0)} ${y}H${X(0) + w - r}Q${X(0) + w} ${y} ${X(0) + w} ${y + r}V${y + h - r}Q${X(0) + w} ${y + h} ${X(0) + w - r} ${y + h}H${X(0)}Z`, fill: it.color, opacity: it.ref ? .55 : 1}, svg);
+    txt(svg, X(0) + w + 6, y + h / 2 + 4, fmt(it.value, digits) + (it.suffix || ''), {class: 'bar-label'});
+    const hit = el('rect', {x: 0, y: y - 6, width: W, height: row, fill: 'transparent', tabindex: 0}, svg);
+    const on = ev => { const b = svg.getBoundingClientRect(); showTip(ev?.clientX ?? b.left + X(it.value) / W * b.width, ev?.clientY ?? b.top + y / H * b.height, it.label, [{value: fmt(it.value, digits) + ' ' + unit, label: note || ''}, ...(it.extra || [])]); };
+    hit.addEventListener('pointermove', on); hit.addEventListener('focus', () => on()); hit.addEventListener('pointerleave', hideTip); hit.addEventListener('blur', hideTip);
+  });
+  if (refLine) { el('line', {x1: X(refLine), x2: X(refLine), y1: m.t - 8, y2: H - m.b, stroke: ink.secondary, 'stroke-dasharray': '4 3'}, svg); }
+}
+
+// Heat map: rows x columns, one hue light to dark (sequential), legend below.
+export function heatmap(host, {rows, cols, values, unit, digits = 1, colEvery = 3}) {
+  const W = Math.max(320, host.clientWidth || 640), m = {l: 40, r: 8, t: 8, b: 46}, cw = (W - m.l - m.r) / cols.length, ch = 17, H = m.t + m.b + ch * rows.length;
+  const svg = frame(host, W, H), max = Math.max(...values.flat(), 1e-6);
+  const seq = ['#f3faf6', '#d6f0e1', '#a8e0bf', '#6cc895', '#2fa565', '#14804a', '#0b5c34'];
+  const col = v => seq[Math.min(seq.length - 1, Math.floor(v / max * (seq.length - .001)))];
+  rows.forEach((r, i) => {
+    txt(svg, m.l - 8, m.t + i * ch + ch / 2 + 4, r, {'text-anchor': 'end', class: 'tick'});
+    cols.forEach((c, j) => {
+      const v = values[i][j], x = m.l + j * cw, y = m.t + i * ch;
+      const cell = el('rect', {x: x + .5, y: y + .5, width: cw - 1, height: ch - 1, rx: 2, fill: col(v), tabindex: 0}, svg);
+      const on = ev => { const b = svg.getBoundingClientRect(); showTip(ev?.clientX ?? b.left + x / W * b.width, ev?.clientY ?? b.top + y / H * b.height, r + ' · ' + c, [{value: fmt(v, digits) + ' ' + unit}]); };
+      cell.addEventListener('pointermove', on); cell.addEventListener('focus', () => on()); cell.addEventListener('pointerleave', hideTip); cell.addEventListener('blur', hideTip);
+    });
+  });
+  cols.forEach((c, j) => { if (j % colEvery === 0) txt(svg, m.l + j * cw + cw / 2, m.t + rows.length * ch + 13, c, {'text-anchor': 'middle', class: 'tick'}); });
+  const ly = H - 14, lw = 22;
+  txt(svg, m.l, ly + 9, '0', {'text-anchor': 'end', class: 'tick', dx: -4});
+  seq.forEach((c, k) => el('rect', {x: m.l + k * lw, y: ly, width: lw - 2, height: 10, rx: 2, fill: c}, svg));
+  txt(svg, m.l + seq.length * lw + 4, ly + 9, fmt(max, digits) + ' ' + unit, {class: 'tick'});
 }
