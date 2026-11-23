@@ -26,9 +26,9 @@ export const addons={pv:'PV canopy',coating:'Light reflective finish'};
 export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',insul:'datepalm',screen:'brick',screenThick:.1,existing:'granite',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
 export const stateDefault=()=>({schema:'frond-1',demo:true,name:'Terrace Office',location:'Yazd, Iran',use:'Office',levels:7,model:null,active:'v2',variants:[
  {id:'base',name:'Reference envelope',system:'original',elevation:'all'},
- {id:'v2',name:'Indirect green façade · west',system:'trellis'},
- {id:'v3',name:'Perforated screen · west',system:'brick',coverage:20,depth:1},
- {id:'v4',name:'OVF · terracotta',system:'ovf'},
+ {id:'v2',name:'Indirect green façade',system:'trellis',elevation:'all'},
+ {id:'v3',name:'Perforated screen',system:'brick',coverage:20,depth:1,elevation:'all'},
+ {id:'v4',name:'OVF · terracotta',system:'ovf',elevation:'all'},
  {id:'v5',name:'Bio-based insulation · date palm',system:'datepalm',elevation:'all'},
  {id:'v6',name:'Bio-PCM + night vent',system:'biopcm',elevation:'all'},
  {id:'v7',name:'Green roof',system:'greenroof',elevation:'all'}
