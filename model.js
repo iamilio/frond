@@ -108,23 +108,53 @@ const ROADS=[{axis:'x',c:-18},{axis:'x',c:20.5},{axis:'y',c:25},{axis:'y',c:-25}
 function slab(a,x0,y0,x1,y1,z0,z1,c){box(a,Math.min(x0,x1),Math.min(y0,y1),z0,Math.abs(x1-x0),Math.abs(y1-y0),z1-z0,c)}
 function cityBlock(a,x,y,w,d,h,col,seed,shadows){box(a,x,y,0,w,d,h,col);box(a,x-.15,y-.15,h,w+.3,d+.3,.35,colorMix(col,'#ffffff',.18));const fl=Math.max(1,Math.floor(h/3.3));
  for(let j=0;j<fl;j++){let z=j*3.3+1.0;for(const [ox,oy,ux,uy,len,nx,ny] of [[x,y,1,0,w,0,-1],[x+w,y+d,-1,0,w,0,1],[x,y+d,0,-1,d,-1,0],[x+w,y,0,1,d,1,0]]){for(let u=.8;u+1.4<len;u+=2.2){let px=ox+ux*u+nx*.03,py=oy+uy*u+ny*.03;face(a,[[px,py,z],[px+ux*1.4,py+uy*1.4,z],[px+ux*1.4,py+uy*1.4,z+1.45],[px,py,z+1.45]],'#4d5a60')}}}
+ box(a,x-.05,y-.05,0,w+.1,d+.1,.9,colorMix(col,'#6b5d48',.25));for(let k=0;k<2;k++){let r=hash(seed*13+k*7),bw=2+r*2.5;box(a,x+w*(.2+.45*k)+r,y+d*(.25+.4*r),h+.35,bw,bw*.8,.9+r*.8,k?'#a9aaa2':'#bfb9aa')}
  shadows.push([x,y,w,d,h+.35])}
+const CAR_COLORS0=['#d94841','#2a78d6','#f2f2f2','#3b3f44','#e0b43a','#8c9aa3','#1baf7a','#c9c4b8'];
+const STOP=9.4,XING=ROADS.filter(r=>r.axis==='y').flatMap(v=>ROADS.filter(r=>r.axis==='x').map(h=>[v.c,h.c]));
 function neighbourhood(a,shadows,trees){
  slab(a,-REACH,-REACH,REACH,REACH,-.09,-.06,'#e4e0d3');
+ const near=(r,t,w)=>ROADS.some(q=>q.axis!==r.axis&&Math.abs(t-q.c)<w);
  for(const r of ROADS){const lo=r.c-3.5,hi=r.c+3.5,side=(s,e)=>r.axis==='x'?slab(a,-REACH,s,REACH,e,0,.12,'#dcd5c6'):slab(a,s,-REACH,e,REACH,0,.12,'#dcd5c6');
   if(r.axis==='x')slab(a,-REACH,lo,REACH,hi,-.06,.01,'#5f6468');else slab(a,lo,-REACH,hi,REACH,-.06,.012,'#5f6468');side(lo-2.6,lo);side(hi,hi+2.6);
-  for(let t=-REACH;t<REACH;t+=6){if(ROADS.some(q=>q.axis!==r.axis&&Math.abs(t+1.5-q.c)<5))continue;r.axis==='x'?slab(a,t,r.c-.08,t+3,r.c+.08,.01,.025,'#f2efe4'):slab(a,r.c-.08,t,r.c+.08,t+3,.012,.027,'#f2efe4')}
-  if(trees)for(let t=-70;t<=70;t+=10){if(ROADS.some(q=>q.axis!==r.axis&&Math.abs(t-q.c)<7))continue;for(const off of [lo-1.3,hi+1.3]){let [x,y]=r.axis==='x'?[t+(off>r.c?5:0),off]:[off,t+(off>r.c?5:0)];if(Math.abs(x)<17.5&&Math.abs(y)<12.6)continue;let h=4.2+hash(x*3+y)*1.6;tree(a,x,y,.12,h,Math.round(x*7+y*3));shadows.push([x-1.2,y-1.2,2.4,2.4,h*.85])}}}
- const blocks=[[-62,-50,22,18,6,'#d9cdb3'],[-31,-46,18,16,6,'#cfc3a8'],[-6,-48,18,18,6,'#e2d6bd'],[32,-52,22,20,9,'#d6c9ad'],[58,-48,20,16,19,'#ccbfa3'],[-64,30,24,18,12,'#d7cbb0'],[-34,31,18,20,22,'#cdbfa4'],[-8,31,20,16,9,'#e0d4ba'],[33,31,22,18,15,'#d4c8ac'],[60,33,18,16,6,'#ddd1b7'],[-62,-14,22,22,6,'#d3c6aa'],[-88,-10,18,20,7,'#ded2b9'],[33,-14,20,22,9,'#d8ccb1'],[61,-12,16,20,25,'#c9bb9f']];
- blocks.forEach((b,i)=>cityBlock(a,...b.slice(0,6),i,shadows))}
-// Lanes for moving cars: two directions on each street.
-export const LANES=ROADS.flatMap((r,i)=>[{r,off:-1.75,dir:1,n:3,speed:9+i},{r,off:1.75,dir:-1,n:3,speed:8+i*1.3}]);
-const CAR_COLORS=['#d94841','#2a78d6','#f2f2f2','#3b3f44','#e0b43a','#8c9aa3','#1baf7a','#c9c4b8'];
-function orientedBox(a,cx,cy,z,len,wid,h,ux,uy,c){const nx=-uy,ny=ux,P=(s,t,q)=>[cx+ux*s*len/2+nx*t*wid/2,cy+uy*s*len/2+ny*t*wid/2,z+q];
+  const L=(t0,c0,t1,c1,z,col)=>r.axis==='x'?slab(a,t0,c0,t1,c1,z,z+.015,col):slab(a,c0,t0,c1,t1,z,z+.015,col);
+  for(let t=-REACH;t<REACH;t+=6){if(near(r,t+1.5,STOP+1))continue;L(t,r.c-.08,t+3,r.c+.08,.012,'#f2efe4')}
+  for(const e of [lo+.25,hi-.25])for(let t=-REACH;t<REACH;t+=1){if(near(r,t+.5,6.2))continue;L(t,e-.05,t+1,e+.05,.012,'#d9d6cc')}
+  for(const q of ROADS.filter(q=>q.axis!==r.axis))for(const sgn of [-1,1]){const x0=q.c+sgn*6.6;for(let c=lo+.5;c<hi-.4;c+=.9)L(Math.min(x0,x0+sgn*2.2),c,Math.max(x0,x0+sgn*2.2),c+.5,.014,'#f4f1e8');{const left=(sgn<0)===(r.axis==='x');L(Math.min(q.c+sgn*STOP,q.c+sgn*(STOP-.3)),left?lo+.1:r.c,Math.max(q.c+sgn*STOP,q.c+sgn*(STOP-.3)),left?r.c:hi-.1,.014,'#f4f1e8')}}
+  if(trees)for(let t=-70;t<=70;t+=10){if(near(r,t,9))continue;for(const off of [lo-1.3,hi+1.3]){let [x,y]=r.axis==='x'?[t+(off>r.c?5:0),off]:[off,t+(off>r.c?5:0)];if(Math.abs(x)<17.5&&Math.abs(y)<12.6)continue;let h=4.2+hash(x*3+y)*1.6;tree(a,x,y,.12,h,Math.round(x*7+y*3));shadows.push([x-1.2,y-1.2,2.4,2.4,h*.85])}}}
+ // Traffic-light poles on the four corners of each crossing; the lamps are drawn with the cars.
+ for(const [X,Y] of XING)for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){let px=X+sx*4.3,py=Y+sy*4.3;box(a,px-.1,py-.1,.12,.2,.2,4.3,'#3d4246');box(a,px-.22,py-.22,4.0,.44,.44,.9,'#2b2f33')}
+ // City blocks fill the cells between streets, set back from the sidewalks.
+ const cut=(lo,hi)=>{let e=[-REACH+2,...ROADS.filter(r=>r.axis===lo).map(r=>r.c).sort((p,q)=>p-q).flatMap(c=>[c-7.6,c+7.6]),REACH-2],out=[];for(let i=0;i<e.length;i+=2)out.push([e[i],e[i+1]]);return out};
+ const cols=['#d9cdb3','#c9a27e','#e2d6bd','#cfd0cb','#ccbfa3','#b98b6a','#e6e2d8','#d4c8ac','#c2b59c','#ddd1b7','#a9a79c'];let n=0;
+ for(const [x0,x1] of cut('y'))for(const [y0,y1] of cut('x')){if(x0<0&&x1>0&&y0<0&&y1>0)continue;const nx=x1-x0>40?2:1,ny=y1-y0>40?2:1,gw=(x1-x0)/nx,gh=(y1-y0)/ny;
+  for(let i=0;i<nx;i++)for(let j=0;j<ny;j++){let r=hash(x0*3+y0*7+i*13+j*29),w=gw-6-r*4,d=gh-6-hash(r*17)*4,bx=x0+i*gw+(nx>1&&i===0?0:gw-w)*(nx>1?1:.5),by=y0+j*gh+(ny>1&&j===0?0:gh-d)*(ny>1?1:.5);
+   const dist=Math.min(Math.abs(bx+w/2),Math.abs(by+d/2)),h=Math.round((dist<45?5:9)+hash(r*5)*(dist<45?6:22));cityBlock(a,bx,by,w,d,h,cols[n++%cols.length],n,shadows)}}}
+// Traffic: lanes with signalised crossings. Cars keep a gap to the car ahead and stop at red lights.
+const LANE_DEF=ROADS.flatMap((r,i)=>[{axis:r.axis,c:r.c-1.75*(r.axis==='x'?1:-1),dir:1,v0:9+i*.7},{axis:r.axis,c:r.c+1.75*(r.axis==='x'?1:-1),dir:-1,v0:8.4+i*.9}]);
+const startSlots=(xs,n,seed)=>{let c=[];for(let t=-REACH+4;t<REACH-4;t+=9)if(xs.every(X=>Math.abs(t-X)>30))c.push(t);return Array.from({length:n},(_,i)=>c[Math.floor((i+hash(seed)*.9)*c.length/n)%c.length])};
+export const LANES=LANE_DEF.map((L,li)=>({...L,stops:ROADS.filter(q=>q.axis!==L.axis).map(q=>q.c),cars:startSlots(ROADS.filter(q=>q.axis!==L.axis).map(q=>q.c),5,li*7).map((s0,i)=>({s:s0,v:L.v0,col:CAR_COLORS0[(li*3+i)%CAR_COLORS0.length]}))}));
+function signal(axis,t){const p=((t%32)+32)%32;if(axis==='x')return p<11?'g':p<13?'a':'r';return p>=16&&p<27?'g':p>=27&&p<29?'a':'r'}
+let simT=null;
+function stepTraffic(t){if(simT===null){simT=t;return}let dt=Math.min(.1,Math.max(0,t-simT));simT=t;if(!dt)return;
+ for(const L of LANES){const st=signal(L.axis,t),span=2*REACH,cars=L.cars.slice().sort((p,q)=>L.dir*(p.s-q.s));
+  cars.forEach((c,i)=>{let lead=cars[(i+1)%cars.length],gap=L.dir*(lead.s-c.s);if(gap<=0)gap+=span;let vt=L.v0*Math.max(0,Math.min(1,(gap-7)/14));
+   if(st!=='g')for(const X of L.stops){let line=X-L.dir*STOP,dist=L.dir*(line-c.s)-2.2;if(dist>-.5&&dist<45&&!(st==='a'&&dist<Math.max(1,c.v*.9)))vt=Math.min(vt,L.v0*Math.max(0,Math.min(1,dist/20)))}
+   c.v+=Math.max(-7*dt,Math.min(2.5*dt,vt-c.v));c.v=Math.max(0,c.v);c.s+=L.dir*c.v*dt;if(L.dir*c.s>REACH)c.s-=L.dir*span})}}
+const CAR_COLORS=CAR_COLORS0;
+function orientedBox(a,cx,cy,z,len,wid,h,ux,uy,c,ds=0,dt=0){const nx=-uy,ny=ux;cx+=ux*ds+nx*dt;cy+=uy*ds+ny*dt;const P=(s,t,q)=>[cx+ux*s*len/2+nx*t*wid/2,cy+uy*s*len/2+ny*t*wid/2,z+q];
  a.push({p:[P(-1,-1,h),P(1,-1,h),P(1,1,h),P(-1,1,h)],c});for(const [s0,t0,s1,t1] of [[-1,-1,1,-1],[1,-1,1,1],[1,1,-1,1],[-1,1,-1,-1]])a.push({p:[P(s0,t0,0),P(s1,t1,0),P(s1,t1,h),P(s0,t0,h)],c})}
-export function carFaces(time){const out=[];LANES.forEach((L,li)=>{for(let i=0;i<L.n;i++){let len=2*REACH,s=((time*L.speed/len+i/L.n+li*.137)%1+1)%1,t=-REACH+len*(L.dir>0?s:1-s),c=CAR_COLORS[(li*3+i)%CAR_COLORS.length];
- let [x,y,ux,uy]=L.r.axis==='x'?[t,L.r.c+L.off,L.dir,0]:[L.r.c+L.off,t,0,L.dir];
- if(Math.abs(x)<20&&Math.abs(y)<15)continue;orientedBox(out,x,y,.18,4.2,1.8,.75,ux,uy,c);orientedBox(out,x-ux*.3,y-uy*.3,.93,2.2,1.6,.55,ux,uy,'#2f3a44');}});return out}
+function car(out,x,y,ux,uy,col,braking){const B=(len,wid,z,h,c,ds=0,dt=0)=>orientedBox(out,x,y,z,len,wid,h,ux,uy,c,ds,dt);
+ for(const s of [-1.35,1.35])for(const t of [-.82,.82])B(.66,.24,.02,.6,'#1d1f22',s,t);
+ B(4.3,1.78,.3,.62,col);B(2.25,1.6,.92,.5,'#2a3640',-.25);B(1.95,1.5,1.42,.05,colorMix(col,'#ffffff',.08),-.25);
+ for(const t of [-.62,.62]){B(.06,.32,.62,.16,'#fff6d5',2.14,t);B(.06,.32,.62,.16,braking?'#ff2d20':'#9b2a22',-2.14,t)}}
+export function carFaces(time){stepTraffic(time);const out=[];
+ for(const L of LANES)for(const c of L.cars){let [x,y,ux,uy]=L.axis==='x'?[c.s,L.c,L.dir,0]:[L.c,c.s,0,L.dir];car(out,x,y,ux,uy,c.col,c.v<L.v0*.6)}
+ const lamp={g:'#2fe07a',a:'#ffb21a',r:'#ff3b30'};
+ for(const [X,Y] of XING)for(const [sx,sy] of [[-1,-1],[1,-1],[1,1],[-1,1]]){let px=X+sx*4.3,py=Y+sy*4.3,cx=signal('x',time),cy=signal('y',time);
+  out.push({p:[[px-sx*.23,py-.12,4.25],[px-sx*.23,py+.12,4.25],[px-sx*.23,py+.12,4.65],[px-sx*.23,py-.12,4.65]],c:lamp[cx]});
+  out.push({p:[[px-.12,py-sy*.23,4.25],[px+.12,py-sy*.23,4.25],[px+.12,py-sy*.23,4.65],[px-.12,py-sy*.23,4.65]],c:lamp[cy]})}
+ return out}
 // Sun direction for Yazd (lat 31.9° N) on the 21st of a month at a solar hour. x east, y north, z up.
 export function sunVector(month,hour,lat=31.9){const n=[21,52,80,111,141,172,202,233,264,294,325,355][month],dec=23.45*Math.PI/180*Math.sin(2*Math.PI*(284+n)/365),H=(hour-12)*15*Math.PI/180,phi=lat*Math.PI/180;
  const x=-Math.cos(dec)*Math.sin(H),y=Math.sin(dec)*Math.cos(phi)-Math.cos(dec)*Math.cos(H)*Math.sin(phi),z=Math.sin(dec)*Math.sin(phi)+Math.cos(dec)*Math.cos(H)*Math.cos(phi);return[x,y,z]}

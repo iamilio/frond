@@ -1,7 +1,7 @@
-import {systems,hosts,params,claddings,insulations,screens,existingFacades,addons,paramDefaults,parseModel,buildScene,stateDefault,bounds,carFaces,sunVector} from './model.js?v=20261122c';
-import {draw,pick,swatch,cameraDefault} from './render.js?v=20261122c';
-import {icons} from './icons.js?v=20261122c';
-import {lineChart,barChart,scatter,scoreMatrix,hbar,heatmap} from './charts.js?v=20261122c';
+import {systems,hosts,params,claddings,insulations,screens,existingFacades,addons,paramDefaults,parseModel,buildScene,stateDefault,bounds,carFaces,sunVector} from './model.js?v=20261122e';
+import {draw,pick,swatch,cameraDefault} from './render.js?v=20261122e';
+import {icons} from './icons.js?v=20261122e';
+import {lineChart,barChart,scatter,scoreMatrix,hbar,heatmap} from './charts.js?v=20261122e';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=n=>'<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+(icons[n]||icons.box)+'</svg>';
