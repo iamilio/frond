@@ -128,14 +128,21 @@ export function carFaces(time){const out=[];LANES.forEach((L,li)=>{for(let i=0;i
 // Sun direction for Yazd (lat 31.9° N) on the 21st of a month at a solar hour. x east, y north, z up.
 export function sunVector(month,hour,lat=31.9){const n=[21,52,80,111,141,172,202,233,264,294,325,355][month],dec=23.45*Math.PI/180*Math.sin(2*Math.PI*(284+n)/365),H=(hour-12)*15*Math.PI/180,phi=lat*Math.PI/180;
  const x=-Math.cos(dec)*Math.sin(H),y=Math.sin(dec)*Math.cos(phi)-Math.cos(dec)*Math.cos(H)*Math.sin(phi),z=Math.sin(dec)*Math.sin(phi)+Math.cos(dec)*Math.cos(H)*Math.cos(phi);return[x,y,z]}
+// Opaque pieces of a façade frame. Sample-building frames carry both glass and wall, so systems that need an opaque wall get punched windows: sill, head and side piers per bay.
+function wallPieces(f,W,H){if(!(f.shadeHost&&f.wallHost))return[[0,0,W,H]];const n=Math.max(1,Math.round(W/1.8)),bw=W/n,sill=Math.min(.95,H*.3),head=Math.max(sill+.7,H-.45),p=Math.min(.4,bw*.22),r=[];for(let i=0;i<n;i++){let u=i*bw,U=u+bw;r.push([u,0,U,sill],[u,head,U,H],[u,sill,u+p,head],[U-p,sill,U,head])}return r}
 function buildSystem(a,f,v,isTarget){
  const tag={dir:f.dir,level:f.level,room:f.room},W=f.len,H=f.h,k=.20;
  if(!isTarget||a.length>165000)return;
  if(v.wall==='living'&&f.wallHost){for(let i=0;i<W;i+=1.25){if(!allowed(f,i+.4,H*.38))continue;wallQuad(a,f,i,0,Math.min(W,i+1.18),H*.71,.06,i%2?'#70845d':'#83956c',tag)}}
  const bands=f.bands||[[0,H]];
- if(v.wall==='ovf'&&f.wallHost){const cav=Math.max(.04,Number(v.cavity)||.12)*1.5,col={brick:'#b9653f',terracotta:'#c98257',biobased:'#a88f5f',stone:'#cfc4ae',gfrc:'#d8d4cc',acp:'#bcc3c7'}[v.cladding]||'#c98257';for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=0;i<W;i+=1.2){let u1=Math.min(W,i+1.17),mid=(i+u1)/2;if(!allowed(f,mid,(b0+b1)/2))continue;blade(a,f,i+.02,b0,i+.07,b1,.055,.06+cav,'#6f6b63',tag);blade(a,f,i+.015,b0+.015,u1,b1-.015,.06+cav,.085+cav,colorMix(col,'#ffffff',hash(i*7+b0*3)*.16),tag)}}}
- if(v.layer==='datepalm'&&f.wallHost){const t=Math.max(.04,Number(v.thick)||.1)*.7;for(const [b0,b1] of bands){if(b1-b0<.1)continue;for(let i=0;i<W;i+=1){let u1=Math.min(W,i+1);if(!allowed(f,(i+u1)/2,(b0+b1)/2))continue;blade(a,f,i,b0,u1,b1,.056,.056+t,(insulations[v.insul]||insulations.datepalm)[2],tag);for(let q=i+.07;q<u1-.02;q+=.14)wallQuad(a,f,q,b0+.012,q+.035,b1-.012,.06+t,'#b3955d',tag)}}}
- if(v.layer==='pcm'&&f.wallHost){for(const [b0,b1] of bands){if(b1-b0<.12)continue;for(let i=.04;i+.3<W;i+=.36)for(let j=b0+.03;j+.2<b1;j+=.3){if(!allowed(f,i+.15,j+.1))continue;blade(a,f,i,j,i+.3,Math.min(b1-.03,j+.25),.056,.09,hash(i*3+j*11)>.5?'#7d8fca':'#95a5d8',tag)}}}
+ // Wall systems cover the whole opaque façade; on the sample building they become a punched façade with windows behind openings.
+ const tiles=(cb,tw,th)=>{for(const [u0,v0,u1,v1] of wallPieces(f,W,H)){for(let u=u0;u<u1-.02;u+=tw)for(let z=v0;z<v1-.02;z+=th){let U=Math.min(u1,u+tw),Z=Math.min(v1,z+th);if(U-u<.05||Z-z<.05||!allowed(f,(u+U)/2,(z+Z)/2))continue;cb(u,z,U,Z)}}};
+ if(v.wall==='ovf'&&f.wallHost){const cav=Math.max(.04,Number(v.cavity)||.12)*1.5,col={brick:'#b9653f',terracotta:'#c98257',biobased:'#a88f5f',stone:'#cfc4ae',gfrc:'#d8d4cc',acp:'#bcc3c7'}[v.cladding]||'#c98257',th=v.cladding==='acp'||v.cladding==='gfrc'?1.05:.6,tw=v.cladding==='brick'?.6:1.2;
+  for(const [u0,v0,u1,v1] of wallPieces(f,W,H))if(allowed(f,(u0+u1)/2,(v0+v1)/2)){blade(a,f,u0+.03,v0,u0+.08,v1,.055,.06+cav,'#5f5b55',tag);blade(a,f,u1-.08,v0,u1-.03,v1,.055,.06+cav,'#5f5b55',tag)}
+  tiles((u,z,U,Z)=>blade(a,f,u+.008,z+.008,U-.008,Z-.008,.06+cav,.085+cav,colorMix(col,'#ffffff',hash(u*7+z*13)*.18),tag),tw,th)}
+ if(v.layer==='datepalm'&&f.wallHost){const t=Math.max(.04,Number(v.thick)||.1)*.9,m=insulations[v.insul]||insulations.datepalm;
+  tiles((u,z,U,Z)=>{let c=colorMix(m[2],'#ffffff',hash(u*5+z*3)*.12);blade(a,f,u+.006,z+.006,U-.006,Z-.006,.056,.056+t,c,tag);for(let q=u+.05;q<U-.03;q+=.1)wallQuad(a,f,q,z+.02,q+.025,Z-.02,.06+t,colorMix(m[2],'#6b5532',.35),tag)},.6,1.2)}
+ if(v.layer==='pcm'&&f.wallHost){tiles((u,z,U,Z)=>{blade(a,f,u,z,U,Z,.056,.07,'#e7e8ee',tag);blade(a,f,u+.03,z+.03,U-.03,Z-.03,.07,.1,hash(u*3+z*11)>.5?'#6d82c4':'#8b9fd6',tag)},.3,.3)}
  if(!f.shadeHost||v.system==='original')return;
  const spacing=Math.max(.5,Number(v.spacing)||1.8),depth=Number(v.depth)||.9,angle=(Number(v.angle)||0)*Math.PI/180;
  if(v.system==='fins'||v.system==='kinetic'){let count=Math.max(1,Math.min(80,Math.round(W/spacing)));for(let i=0;i<count;i++){let u=(i+.5)*W/count;if(!allowed(f,u,H*.5))continue;let t=Math.min(W/count*.21,.20);blade(a,f,u-t/2,.03,u+t/2,H-.03,k,k+Math.max(.09,depth*Math.cos(angle)),v.system==='fins'?'#bb7854':'#82959b',tag,depth*Math.sin(angle))}}
@@ -143,6 +150,13 @@ function buildSystem(a,f,v,isTarget){
  if(v.system==='perforated'){const open=Math.min(.7,Math.max(.1,(v.coverage||30)/100)),bl=.42,bh=.12,gap=bl*open/(1-open),kk=k+Math.min(depth,1.3);
   for(let u=0;u<=W;u+=3)if(allowed(f,Math.min(u,W-.05),H*.5))blade(a,f,Math.max(0,Math.min(u,W-.06)),0,Math.max(.06,Math.min(u+.06,W)),H,k,kk,'#5b5c58',tag);
   for(let row=0,z=.02;z<H-.04;row++,z+=bh){let off=row%2?(bl+gap)/2:0;for(let u=-off;u<W;u+=bl+gap){let u0=Math.max(0,u),u1=Math.min(W,u+bl);if(u1-u0<.05||!allowed(f,(u0+u1)/2,z+bh/2))continue;let sc=screens[v.screen]||screens.brick,c=colorMix(sc[1],sc[2],hash(row*31+Math.round(u*10)));face(a,[pt(f,u0,z,kk),pt(f,u1,z,kk),pt(f,u1,z+bh*.84,kk),pt(f,u0,z+bh*.84,kk)],c,tag);face(a,[pt(f,u0,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk+.1),pt(f,u0,z+bh*.84,kk+.1)],colorMix(c,'#ffffff',.18),tag)}}
+  return}
+ if(v.system==='trellis'){const kk=k+Math.max(.2,Math.min(depth,1.3)),cov=Math.max(.15,Math.min(1,(v.coverage||70)/100)),greens=['#3f6b33','#4f7a3a','#5f8c45','#6e9a4f','#7aa65a'],cs=.3;
+  if(allowed(f,W/2,.2))blade(a,f,0,0,W,.38,kk-.18,kk+.22,'#6a5843',tag);
+  for(let u=spacing/2;u<W;u+=spacing)if(allowed(f,u,H/2))blade(a,f,u-.012,.38,u+.012,H,kk-.012,kk+.012,'#4f5753',tag);
+  for(let u=0;u<W;u+=cs)for(let z=.3;z<H;z+=cs){let r=hash(u*31.7+z*17.3+f.o[0]*3+f.o[1]*5+f.o[2]*7),need=cov*(1.25-.45*z/H);if(r>need||!allowed(f,u+cs/2,z+cs/2))continue;
+   let j=(hash(r*91)-.5)*.08,d=kk+.02+.1*hash(r*37),c=greens[Math.floor(hash(r*53)*greens.length)],U=Math.min(W,u+cs*1.3),Z=Math.min(H,z+cs*1.3);face(a,[pt(f,u+j,z,d),pt(f,U,z+j,d+.03),pt(f,U-j,Z,d),pt(f,u,Z-j,d-.02)],c,tag);
+   if(r<cov*.22){let [x,y,zz]=pt(f,u+cs/2,z+cs/2,d+.16);leaf(a,x,y,zz,.24+.12*r,Math.round(u*53+z*7),greens[Math.floor(hash(r*7)*greens.length)])}}
   return}
  if(v.system==='trellis'||v.system==='perforated'||v.system==='bionic'){
  let green=v.system==='trellis',bio=v.system==='bionic',step=Math.max(.52,spacing*.65,Math.sqrt(W*H/1200));for(let i=0;i<W;i+=step){for(let j=0;j<H;j+=step){let u=Math.min(i+step*.5,W-.1),z=Math.min(j+step*.5,H-.1);if(!allowed(f,u,z))continue;let rr=step*.46*Math.sqrt((v.coverage||70)/100),kk=k+Math.min(depth,1.3);if(green){wallQuad(a,f,i,Math.max(0,j),Math.min(i+.05,W),Math.min(H,j+step),kk,'#8a8b75',tag);wallQuad(a,f,i,j,Math.min(W,i+step),Math.min(j+.05,H),kk,'#898a72',tag);let r=hash(i*12+j*3+f.o[2]);if(r<(v.coverage||70)/100)leaf(a,...pt(f,u,z,kk+.12),rr*(1+.35*r),Math.round(i*53+j),r>.55?'#839a62':'#708451')}
