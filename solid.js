@@ -1,4 +1,4 @@
-import {normal} from './model.js?v=20261122f';
+import {normal} from './model.js?v=20261122g';
 // Depth-tested WebGL rendering with sun lighting, moving objects and ground shadows,
 // plus a software rasterizer fallback.
 let renderer;

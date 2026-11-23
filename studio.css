@@ -26,3 +26,8 @@
 .sun-panel output{font:11.5px ui-monospace,monospace;color:#3d4a41;min-width:190px}
 .sun-traffic{display:flex;align-items:center;gap:5px;border-left:1px solid #dbe4de;padding-left:8px}
 @media(max-width:720px){.sun-panel input[type=range]{width:100px}.sun-panel output{min-width:0}}
+
+.opt-box{background:#fff;border:1px solid #d3ddd6;border-radius:10px;padding:18px 20px;margin-top:14px}.opt-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.opt-head h3{font-size:18px;letter-spacing:-.3px;margin:4px 0 2px}.opt-head p{font-size:13.5px;color:#3f4b43}
+.opt-chips{display:flex;flex-wrap:wrap;gap:8px;margin:14px 0 16px}.chip{display:flex;flex-direction:column;gap:1px;background:#eef8f2;border:1px solid #cdeedb;border-radius:8px;padding:6px 10px;font-size:13.5px;font-weight:600;color:#1f2a23}.chip small{font-size:11px;font-weight:500;color:#55625a}
+.opt-table th .row-key{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:1px}.opt-table td.why{max-width:420px}.opt-table b.delta{font-weight:650}
+.opt-table .warn{color:#a15c00;font-size:11.5px}

@@ -19,11 +19,13 @@ export const params={
 export const claddings={terracotta:'Terracotta',stone:'Stone (dry fixed)',gfrc:'GFRC',acp:'Aluminium composite panel',brick:'Brick',biobased:'Bio-based panel'};
 // Bio-based insulation library. Typical dry conductivity (W/m·K) from the literature; real products vary with density and moisture.
 export const insulations={datepalm:['Date-palm fibre',.06,'#d8bf88'],straw:['Straw',.052,'#e3cf8a'],reed:['Reed',.054,'#c4ad74'],cork:['Cork',.039,'#a9805a'],kenaf:['Kenaf',.04,'#d6cfa8']};
+// Climbing plants for the indirect green façade: [common name, species, shade factor, water L/m²·day at full cover, habit, leaf colours, flower colour]. Demo values.
+export const plants={grape:['Grape vine','Vitis vinifera',1,2.2,'Deciduous',['#4f7a3a','#5f8c45','#6e9a4f','#7aa65a','#8cb366'],null],ivy:['Boston ivy','Parthenocissus tricuspidata',1.05,4.2,'Deciduous',['#3f6b33','#4c7a3c','#5a8a46','#6d9a50','#7e2f2a'],null],wisteria:['Wisteria','Wisteria sinensis',.95,2.6,'Deciduous',['#557d3d','#668f48','#76a052','#86ad5e','#5b8440'],'#b7a2e0'],bougainvillea:['Bougainvillea','Bougainvillea glabra',.88,1.4,'Evergreen',['#2f5a2a','#3c6a31','#4a7a3a','#587f40','#35602e'],'#d6489a'],honeysuckle:['Honeysuckle','Lonicera japonica',.9,2.4,'Semi-evergreen',['#466f36','#557f3f','#64904a','#749d54','#4d7639'],'#f2e3a6']};
 export const screens={brick:['Brick','#b5623b','#d39064'],terracotta:['Terracotta','#c27a4e','#dea27a'],grc:['GRC','#cfcac0','#e6e2da']};
 // Existing façade of the designer's building = the reference. Labels follow the common Iranian façade types (Keikha & Jafari 2026); U in W/m²·K is indicative.
 export const existingFacades={granite:['Brick with granite facing',1.6],facebrick:['Face brick',1.8],stone:['Dry-fixed stone on brick',1.5],ceramic:['Ceramic cladding',1.6],terracotta:['Terracotta cladding',1.5],stucco:['Stucco on brick',1.9],acp:['Aluminium composite panel',1.4],thermowood:['ThermoWood cladding',1.3],gfrc:['GFRC panel',1.5],curtain:['Glass curtain wall',2.7],code:['Insulated wall to code',.4]};
 export const addons={pv:'PV canopy',coating:'Light reflective finish'};
-export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',insul:'datepalm',screen:'brick',screenThick:.1,existing:'granite',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
+export const paramDefaults={elevation:'W',floor:'all',room:'all',rotation:0,wwr:74,mass:'stepped',depth:.6,spacing:1.8,coverage:70,cavity:.12,thick:.1,pcmThick:.02,melt:26,nightAch:4,substrate:.12,lai:2.5,irrigation:2,cladding:'terracotta',insul:'datepalm',plant:'grape',screen:'brick',screenThick:.1,existing:'granite',addons:{pv:false,coating:false},custom:null,rate:null,quantity:null};
 export const stateDefault=()=>({schema:'frond-1',demo:true,name:'Terrace Office',location:'Yazd, Iran',use:'Office',levels:7,model:null,active:'v2',variants:[
  {id:'base',name:'Reference envelope',system:'original',elevation:'all'},
  {id:'v2',name:'Indirect green façade',system:'trellis',elevation:'all'},
@@ -181,11 +183,11 @@ function buildSystem(a,f,v,isTarget){
   for(let u=0;u<=W;u+=3)if(allowed(f,Math.min(u,W-.05),H*.5))blade(a,f,Math.max(0,Math.min(u,W-.06)),0,Math.max(.06,Math.min(u+.06,W)),H,k,kk,'#5b5c58',tag);
   for(let row=0,z=.02;z<H-.04;row++,z+=bh){let off=row%2?(bl+gap)/2:0;for(let u=-off;u<W;u+=bl+gap){let u0=Math.max(0,u),u1=Math.min(W,u+bl);if(u1-u0<.05||!allowed(f,(u0+u1)/2,z+bh/2))continue;let sc=screens[v.screen]||screens.brick,c=colorMix(sc[1],sc[2],hash(row*31+Math.round(u*10)));face(a,[pt(f,u0,z,kk),pt(f,u1,z,kk),pt(f,u1,z+bh*.84,kk),pt(f,u0,z+bh*.84,kk)],c,tag);face(a,[pt(f,u0,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk),pt(f,u1,z+bh*.84,kk+.1),pt(f,u0,z+bh*.84,kk+.1)],colorMix(c,'#ffffff',.18),tag)}}
   return}
- if(v.system==='trellis'){const kk=k+Math.max(.2,Math.min(depth,1.3)),cov=Math.max(.15,Math.min(1,(v.coverage||70)/100)),greens=['#3f6b33','#4f7a3a','#5f8c45','#6e9a4f','#7aa65a'],cs=.3;
+ if(v.system==='trellis'){const kk=k+Math.max(.2,Math.min(depth,1.3)),cov=Math.max(.15,Math.min(1,(v.coverage||70)/100)),P=plants[v.plant]||plants.grape,greens=P[5],flower=P[6],cs=.3;
   if(allowed(f,W/2,.2))blade(a,f,0,0,W,.38,kk-.18,kk+.22,'#6a5843',tag);
   for(let u=spacing/2;u<W;u+=spacing)if(allowed(f,u,H/2))blade(a,f,u-.012,.38,u+.012,H,kk-.012,kk+.012,'#4f5753',tag);
   for(let u=0;u<W;u+=cs)for(let z=.3;z<H;z+=cs){let r=hash(u*31.7+z*17.3+f.o[0]*3+f.o[1]*5+f.o[2]*7),need=cov*(1.25-.45*z/H);if(r>need||!allowed(f,u+cs/2,z+cs/2))continue;
-   let j=(hash(r*91)-.5)*.08,d=kk+.02+.1*hash(r*37),c=greens[Math.floor(hash(r*53)*greens.length)],U=Math.min(W,u+cs*1.3),Z=Math.min(H,z+cs*1.3);face(a,[pt(f,u+j,z,d),pt(f,U,z+j,d+.03),pt(f,U-j,Z,d),pt(f,u,Z-j,d-.02)],c,tag);
+   let j=(hash(r*91)-.5)*.08,d=kk+.02+.1*hash(r*37),c=flower&&hash(r*71)<.13?flower:greens[Math.floor(hash(r*53)*greens.length)],U=Math.min(W,u+cs*1.3),Z=Math.min(H,z+cs*1.3);face(a,[pt(f,u+j,z,d),pt(f,U,z+j,d+.03),pt(f,U-j,Z,d),pt(f,u,Z-j,d-.02)],c,tag);
    if(r<cov*.22){let [x,y,zz]=pt(f,u+cs/2,z+cs/2,d+.16);leaf(a,x,y,zz,.24+.12*r,Math.round(u*53+z*7),greens[Math.floor(hash(r*7)*greens.length)])}}
   return}
  if(v.system==='trellis'||v.system==='perforated'||v.system==='bionic'){
