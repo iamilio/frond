@@ -1,4 +1,4 @@
-import {normal} from './model.js?v=20261122g';
+import {normal} from './model.js?v=20261122i';
 // Depth-tested WebGL rendering with sun lighting, moving objects and ground shadows,
 // plus a software rasterizer fallback.
 let renderer;
@@ -29,7 +29,7 @@ function initialize() {
   const attr = {pos: gl.getAttribLocation(p, 'vertex'), col: gl.getAttribLocation(p, 'color'), nrm: gl.getAttribLocation(p, 'nrm'), glow: gl.getAttribLocation(p, 'glow')};
   for (const k in attr) gl.enableVertexAttribArray(attr[k]);
   gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LEQUAL); gl.clearColor(0, 0, 0, 0);
-  return {gl, canvas, loc, attr, buffers: {static: gl.createBuffer(), dynamic: gl.createBuffer(), overlay: gl.createBuffer()}, last: null};
+  return {gl, canvas, loc, attr, buffers: {static: gl.createBuffer(), dynamic: gl.createBuffer(), overlay: gl.createBuffer(), city: gl.createBuffer()}, last: null, lastCity: null};
 }
 function bind(r, buffer) {
   const {gl, attr} = r, B = STRIDE * 4; gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
@@ -47,14 +47,16 @@ function triangles(points, n) {
 function rgbOf(c) { let rgb = colors.get(c); if (!rgb) { const hex = parseInt(c.slice(1, 7), 16); rgb = [(hex >> 16) & 255, (hex >> 8) & 255, hex & 255].map(v => v / 255); colors.set(c, rgb); } return rgb; }
 // Unlit colours, normals and a per-face window-glow flag; lighting happens in the shader.
 function packFaces(faces) {
-  const data = [];
+  let count = 0; for (const f of faces) count += (f.p.length - 2) * 3;
+  const data = new Float32Array(count * STRIDE); let o = 0;
   faces.forEach((f, fi) => {
     const n = f.n || (f.n = normal(f.p)), rgb = rgbOf(f.c), glass = GLASS.has(f.c);
-    const lo = Math.min(...f.p.map(p => p[2])), hi = Math.max(...f.p.map(p => p[2]));
+    let lo = Infinity, hi = -Infinity; for (const p of f.p) { if (p[2] < lo) lo = p[2]; if (p[2] > hi) hi = p[2]; }
     const glow = glass && (Math.sin(fi * 12.9898 + lo * 3.1) * 43758.5453 % 1 + 1) % 1 > .45 ? 1 : 0;
-    for (const i of triangles(f.p, n)) { const p = f.p[i], t = hi > lo ? (p[2] - lo) / (hi - lo) : 1, g = glass && f.c !== '#4d5a60' ? (.82 + .22 * t) : 1; data.push(...p, ...rgb.map(v => v * g), ...n, glow); }
+    for (const i of triangles(f.p, n)) { if (o + STRIDE > data.length) break; const p = f.p[i], t = hi > lo ? (p[2] - lo) / (hi - lo) : 1, g = glass && f.c !== '#4d5a60' ? (.82 + .22 * t) : 1;
+      data[o] = p[0]; data[o + 1] = p[1]; data[o + 2] = p[2]; data[o + 3] = rgb[0] * g; data[o + 4] = rgb[1] * g; data[o + 5] = rgb[2] * g; data[o + 6] = n[0]; data[o + 7] = n[1]; data[o + 8] = n[2]; data[o + 9] = glow; o += STRIDE; }
   });
-  return new Float32Array(data);
+  return o === data.length ? data : data.subarray(0, o);
 }
 function packed(scene) { let c = cache.get(scene); if (!c) { c = packFaces(scene.poly); cache.set(scene, c); } return c; }
 
@@ -66,13 +68,15 @@ export function drawSolid(ctx, scene, settings, extra = {}) {
     if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; }
     gl.viewport(0, 0, w, h); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.uniform3f(loc.center, mx, my, mz); gl.uniform2f(loc.direction, cx, cy); gl.uniform2f(loc.elevation, sa, ca);
-    gl.uniform2f(loc.size, 2 * scale / W, 2 * scale / H); gl.uniform2f(loc.offset, 2 * ox / W - 1, 1 - 2 * oy / H); gl.uniform1f(loc.depthRange, Math.max(extent * 3, 420));
+    gl.uniform2f(loc.size, 2 * scale / W, 2 * scale / H); gl.uniform2f(loc.offset, 2 * ox / W - 1, 1 - 2 * oy / H); gl.uniform1f(loc.depthRange, extra.city ? 5200 : Math.max(extent * 3, 420));
     const sun = extra.sun || [-.45, -.55, .7], day = extra.day ?? 1, night = extra.night ?? 0;
     gl.uniform3f(loc.sun, sun[0], sun[1], sun[2]); gl.uniform1f(loc.day, day); gl.uniform1f(loc.night, night);
     // Static scene.
     gl.uniform1f(loc.flatShade, 0); gl.uniform1f(loc.alpha, 1); gl.disable(gl.BLEND); gl.depthMask(true);
     const data = packed(scene); bind(r, r.buffers.static); if (r.last !== data) { gl.bufferData(gl.ARRAY_BUFFER, data, gl.STATIC_DRAW); r.last = data; }
     gl.drawArrays(gl.TRIANGLES, 0, data.length / STRIDE);
+    // The surrounding city: large and unchanging, packed and uploaded once.
+    if (extra.city) { let cd = cache.get(extra.city); if (!cd) { cd = packFaces(extra.city); cache.set(extra.city, cd); } bind(r, r.buffers.city); if (r.lastCity !== cd) { gl.bufferData(gl.ARRAY_BUFFER, cd, gl.STATIC_DRAW); r.lastCity = cd; } gl.drawArrays(gl.TRIANGLES, 0, cd.length / STRIDE); }
     // Moving objects (cars), repacked every frame.
     if (extra.dynamic?.length) { const dyn = packFaces(extra.dynamic); bind(r, r.buffers.dynamic); gl.bufferData(gl.ARRAY_BUFFER, dyn, gl.DYNAMIC_DRAW); gl.drawArrays(gl.TRIANGLES, 0, dyn.length / STRIDE); }
     // Ground shadows: flat, translucent, hidden where buildings stand in front.

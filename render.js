@@ -1,5 +1,5 @@
-import {drawSolid,drawSoftware} from './solid.js?v=20261122g';
-import {normal,colorMix,systems} from './model.js?v=20261122g';
+import {drawSolid,drawSoftware} from './solid.js?v=20261122i';
+import {normal,colorMix,systems} from './model.js?v=20261122i';
 const ctxOf=c=>c.getContext('2d',{alpha:false});
 function configure(canvas,ctx){let w=canvas.clientWidth,h=canvas.clientHeight;if(!w||!h)return;let d=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(w*d)||canvas.height!==Math.round(h*d)){canvas.width=Math.round(w*d);canvas.height=Math.round(h*d)}ctx.setTransform(d,0,0,d,0,0);return[w,h]}
 function path(c,p){c.beginPath();c.moveTo(p[0][0],p[0][1]);for(let i=1;i<p.length;i++)c.lineTo(p[i][0],p[i][1]);c.closePath()}
@@ -30,7 +30,7 @@ export function draw(canvas,scene,camera,opts={}){
  if(opts.grid!==false&&!opts.thumb){c.globalAlpha=night>.5?.35:1;for(let i=-45;i<=45;i++){let a=i*gstep,reach=gstep*60,col=i%4===0?'#cbd6cd97':'#d5ddd79c';line(c,proj([a,-reach,0]),proj([a,reach,0]),col,.65);line(c,proj([-reach,a,0]),proj([reach,a,0]),col,.65)}c.globalAlpha=1}
  function depth(p){let sx=0,sy=0,sz=0;for(let v of p){sx+=v[0];sy+=v[1];sz+=v[2]}return((sx*cx+sy*cy)*ca+sz*sa)/p.length}
  const overlay=opts.shadows!==false?shadowFaces(scene.shadows||[],sun):[];
- let settings={W,H,mx,my,mz,scale,ox,oy,cx,cy,sa,ca,extent},extra={sun,day,night,dynamic:opts.dynamic||[],overlay,overlayAlpha:.2+.22*day};
+ let settings={W,H,mx,my,mz,scale,ox,oy,cx,cy,sa,ca,extent},extra={sun,day,night,dynamic:opts.dynamic||[],overlay,overlayAlpha:.2+.22*day,city:scene.city||null};
  let solid=!opts.wire&&drawSolid(c,scene,settings,extra);
  if(!solid&&!opts.wire){c.save();for(const f of overlay)polygon(c,f.p.map(proj),'#24302a30');c.restore();solid=drawSoftware(c,scene,settings,extra)}
  let sorted=(solid&&!opts.pick?[]:faces).map(f=>{if(!f.n)f.n=normal(f.p);return{f,z:depth(f.p)}}).sort((a,b)=>a.z-b.z);
